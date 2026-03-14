@@ -3,7 +3,7 @@ package blake.hash
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
-class Blake3KeyedTest {
+class BLAKE3KeyedTest {
 
     private fun ByteArray.toHex(): String =
         joinToString("") { "%02x".format(it) }
@@ -14,7 +14,7 @@ class Blake3KeyedTest {
     private val key = ByteArray(32) { it.toByte() }
 
     private fun assertKeyedHash(len: Int, expectedHex: String) {
-        assertEquals(expectedHex, Blake3.keyedHash(key, blake3Input(len)).toHex())
+        assertEquals(expectedHex, BLAKE3.keyedHash(key, blake3Input(len)).toHex())
     }
 
     @Test fun `keyed hash len 0`() =

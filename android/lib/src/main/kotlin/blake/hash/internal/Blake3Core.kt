@@ -2,7 +2,7 @@ package blake.hash.internal
 
 // BLAKE3 constants and core operations.
 
-internal object Blake3Core {
+internal object BLAKE3Core {
 
     const val BLOCK_LEN = 64
     const val CHUNK_LEN = 1024

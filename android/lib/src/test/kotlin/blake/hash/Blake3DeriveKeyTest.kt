@@ -3,7 +3,7 @@ package blake.hash
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
-class Blake3DeriveKeyTest {
+class BLAKE3DeriveKeyTest {
 
     private fun ByteArray.toHex(): String =
         joinToString("") { "%02x".format(it) }
@@ -14,7 +14,7 @@ class Blake3DeriveKeyTest {
     private val context = "BLAKE3 2019-12-27 16:29:52 test vectors context"
 
     private fun assertDeriveKey(len: Int, expectedHex: String) {
-        assertEquals(expectedHex, Blake3.deriveKey(context, blake3Input(len)).toHex())
+        assertEquals(expectedHex, BLAKE3.deriveKey(context, blake3Input(len)).toHex())
     }
 
     @Test fun `derive key len 0`() =

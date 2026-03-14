@@ -24,7 +24,7 @@ class VectorParityTest {
             val expected = v.getString("expected")
             val label = describeInput(v, "BLAKE2b-${digestBytes * 8}")
             DynamicTest.dynamicTest("[$i] $label") {
-                val actual = Blake2b.hash(input, digestLength = digestBytes)
+                val actual = BLAKE2b.hash(input, digestLength = digestBytes)
                 assertHex(expected, actual, label)
             }
         }
@@ -41,7 +41,7 @@ class VectorParityTest {
             val expected = v.getString("expected")
             val label = describeInput(v, "BLAKE2b-${digestBytes * 8} keyed")
             DynamicTest.dynamicTest("[$i] $label") {
-                val actual = Blake2b.hash(input, digestLength = digestBytes, key = key)
+                val actual = BLAKE2b.hash(input, digestLength = digestBytes, key = key)
                 assertHex(expected, actual, label)
             }
         }
@@ -57,7 +57,7 @@ class VectorParityTest {
             val pers = v.getString("personalization").encodeToByteArray()
             val expected = v.getString("expected")
             DynamicTest.dynamicTest("[$i] BLAKE2b salt+pers") {
-                val actual = Blake2b.hash(
+                val actual = BLAKE2b.hash(
                     input,
                     digestLength = digestBytes,
                     salt = salt,
@@ -81,7 +81,7 @@ class VectorParityTest {
             val expected = v.getString("expected")
             val label = describeInput(v, "BLAKE2s-${digestBytes * 8}")
             DynamicTest.dynamicTest("[$i] $label") {
-                val actual = Blake2s.hash(input, digestLength = digestBytes)
+                val actual = BLAKE2s.hash(input, digestLength = digestBytes)
                 assertHex(expected, actual, label)
             }
         }
@@ -98,7 +98,7 @@ class VectorParityTest {
             val expected = v.getString("expected")
             val label = describeInput(v, "BLAKE2s-${digestBytes * 8} keyed")
             DynamicTest.dynamicTest("[$i] $label") {
-                val actual = Blake2s.hash(input, digestLength = digestBytes, key = key)
+                val actual = BLAKE2s.hash(input, digestLength = digestBytes, key = key)
                 assertHex(expected, actual, label)
             }
         }
@@ -116,7 +116,7 @@ class VectorParityTest {
             val expected = v.getString("expected")
             val label = describeInput(v, "BLAKE2bp")
             DynamicTest.dynamicTest("[$i] $label") {
-                assertHex(expected, Blake2bp.hash(input), label)
+                assertHex(expected, BLAKE2bp.hash(input), label)
             }
         }
     }
@@ -131,7 +131,7 @@ class VectorParityTest {
             val expected = v.getString("expected")
             val label = describeInput(v, "BLAKE2bp keyed")
             DynamicTest.dynamicTest("[$i] $label") {
-                assertHex(expected, Blake2bp.hash(input, key = key), label)
+                assertHex(expected, BLAKE2bp.hash(input, key = key), label)
             }
         }
     }
@@ -148,7 +148,7 @@ class VectorParityTest {
             val expected = v.getString("expected")
             val label = describeInput(v, "BLAKE2sp")
             DynamicTest.dynamicTest("[$i] $label") {
-                assertHex(expected, Blake2sp.hash(input), label)
+                assertHex(expected, BLAKE2sp.hash(input), label)
             }
         }
     }
@@ -163,7 +163,7 @@ class VectorParityTest {
             val expected = v.getString("expected")
             val label = describeInput(v, "BLAKE2sp keyed")
             DynamicTest.dynamicTest("[$i] $label") {
-                assertHex(expected, Blake2sp.hash(input, key = key), label)
+                assertHex(expected, BLAKE2sp.hash(input, key = key), label)
             }
         }
     }
@@ -181,7 +181,7 @@ class VectorParityTest {
             val expected = v.getString("expected")
             val label = "BLAKE3 hash \"${v.getString("input")}\""
             DynamicTest.dynamicTest("[$i] $label") {
-                assertHex(expected, Blake3.hash(input), label)
+                assertHex(expected, BLAKE3.hash(input), label)
             }
         }
     }
@@ -194,7 +194,7 @@ class VectorParityTest {
             val len = v.getInt("inputLength")
             val expected = v.getString("expected")
             DynamicTest.dynamicTest("[$i] BLAKE3 hash sequential($len)") {
-                assertHex(expected, Blake3.hash(TestVectorLoader.blake3Input(len)),
+                assertHex(expected, BLAKE3.hash(TestVectorLoader.blake3Input(len)),
                     "BLAKE3 hash seq($len)")
             }
         }
@@ -212,7 +212,7 @@ class VectorParityTest {
             val len = v.getInt("inputLength")
             val expected = v.getString("expected")
             DynamicTest.dynamicTest("[$i] BLAKE3 keyed($len)") {
-                assertHex(expected, Blake3.keyedHash(key, TestVectorLoader.blake3Input(len)),
+                assertHex(expected, BLAKE3.keyedHash(key, TestVectorLoader.blake3Input(len)),
                     "BLAKE3 keyed($len)")
             }
         }
@@ -230,7 +230,7 @@ class VectorParityTest {
             val len = v.getInt("inputLength")
             val expected = v.getString("expected")
             DynamicTest.dynamicTest("[$i] BLAKE3 deriveKey($len)") {
-                assertHex(expected, Blake3.deriveKey(context, TestVectorLoader.blake3Input(len)),
+                assertHex(expected, BLAKE3.deriveKey(context, TestVectorLoader.blake3Input(len)),
                     "BLAKE3 deriveKey($len)")
             }
         }
@@ -248,7 +248,7 @@ class VectorParityTest {
             val outputBytes = v.getInt("outputBytes")
             val expected = v.getString("expected")
             DynamicTest.dynamicTest("[$i] BLAKE3 XOF hash(\"${v.getString("input")}\", $outputBytes)") {
-                val hasher = Blake3.Hasher().update(input)
+                val hasher = BLAKE3.Hasher().update(input)
                 val actual = if (outputBytes == 32) hasher.finalize() else hasher.finalizeXof(outputBytes)
                 assertHex(expected, actual, "BLAKE3 XOF hash $outputBytes")
             }
@@ -264,7 +264,7 @@ class VectorParityTest {
             val outputBytes = v.getInt("outputBytes")
             val expected = v.getString("expected")
             DynamicTest.dynamicTest("[$i] BLAKE3 XOF keyed($outputBytes)") {
-                val hasher = Blake3.Hasher(key).update(input)
+                val hasher = BLAKE3.Hasher(key).update(input)
                 val actual = if (outputBytes == 32) hasher.finalize() else hasher.finalizeXof(outputBytes)
                 assertHex(expected, actual, "BLAKE3 XOF keyed $outputBytes")
             }
@@ -280,7 +280,7 @@ class VectorParityTest {
             val outputBytes = v.getInt("outputBytes")
             val expected = v.getString("expected")
             DynamicTest.dynamicTest("[$i] BLAKE3 XOF deriveKey($outputBytes)") {
-                val hasher = Blake3.Hasher.deriveKey(context).update(input)
+                val hasher = BLAKE3.Hasher.deriveKey(context).update(input)
                 val actual = if (outputBytes == 32) hasher.finalize() else hasher.finalizeXof(outputBytes)
                 assertHex(expected, actual, "BLAKE3 XOF deriveKey $outputBytes")
             }

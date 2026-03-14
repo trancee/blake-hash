@@ -7,12 +7,12 @@ package blake.hash
  * instances in round-robin 128-byte blocks; the 4 leaf digests are then
  * hashed by a single root BLAKE2b to produce the final output.
  */
-public class Blake2bp private constructor() {
+public class BLAKE2bp private constructor() {
 
     public companion object {
         private const val PARALLELISM = 4
-        private const val BLOCK_SIZE = Blake2bEngine.BLOCK_SIZE       // 128
-        private const val DIGEST_LENGTH = Blake2bEngine.MAX_DIGEST    // 64
+        private const val BLOCK_SIZE = BLAKE2bEngine.BLOCK_SIZE       // 128
+        private const val DIGEST_LENGTH = BLAKE2bEngine.MAX_DIGEST    // 64
         private const val SUPERBLOCK = PARALLELISM * BLOCK_SIZE       // 512
 
         /**
@@ -34,8 +34,8 @@ public class Blake2bp private constructor() {
     public class Hasher @JvmOverloads public constructor(
         key: ByteArray = ByteArray(0)
     ) {
-        private val leaves: Array<Blake2bEngine>
-        private val root: Blake2bEngine
+        private val leaves: Array<BLAKE2bEngine>
+        private val root: BLAKE2bEngine
         private val buf = ByteArray(SUPERBLOCK)
         private var bufLen = 0
 
@@ -43,7 +43,7 @@ public class Blake2bp private constructor() {
             val keyLen = key.size
 
             // Root first (reference order)
-            root = Blake2bEngine(
+            root = BLAKE2bEngine(
                 digestLength = DIGEST_LENGTH,
                 fanout = PARALLELISM,
                 depth = 2,
@@ -56,7 +56,7 @@ public class Blake2bp private constructor() {
 
             // Create 4 leaf engines (node_offset = 0..3)
             leaves = Array(PARALLELISM) { i ->
-                Blake2bEngine(
+                BLAKE2bEngine(
                     digestLength = DIGEST_LENGTH,
                     fanout = PARALLELISM,
                     depth = 2,

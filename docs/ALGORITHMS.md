@@ -121,8 +121,8 @@ All variants provide comfortable security margins for current and foreseeable th
 The default mode. Use for checksums, integrity verification, content addressing, and Merkle trees.
 
 ```kotlin
-Blake2b.hash(data)
-Blake3.hash(data)
+BLAKE2b.hash(data)
+BLAKE3.hash(data)
 ```
 
 ### Keyed Hash (MAC / PRF)
@@ -131,10 +131,10 @@ Use when you need to **authenticate** data with a secret key. This replaces HMAC
 
 ```kotlin
 // BLAKE2b: variable-length key (1–64 bytes)
-Blake2b.hash(data, key = secretKey)
+BLAKE2b.hash(data, key = secretKey)
 
 // BLAKE3: key must be exactly 32 bytes
-Blake3.keyedHash(key32, data)
+BLAKE3.keyedHash(key32, data)
 ```
 
 **When to use which keyed mode:**
@@ -146,8 +146,8 @@ Blake3.keyedHash(key32, data)
 BLAKE3 only. Derives subkeys from key material using a context string.
 
 ```kotlin
-val encKey = Blake3.deriveKey("myapp 2025-01-01 encryption", masterKey)
-val macKey = Blake3.deriveKey("myapp 2025-01-01 mac", masterKey)
+val encKey = BLAKE3.deriveKey("myapp 2025-01-01 encryption", masterKey)
+val macKey = BLAKE3.deriveKey("myapp 2025-01-01 mac", masterKey)
 ```
 
 **Context string rules:**
@@ -160,7 +160,7 @@ val macKey = Blake3.deriveKey("myapp 2025-01-01 mac", masterKey)
 BLAKE3 only. Produces arbitrary-length output. The first 32 bytes are identical to `finalize()`.
 
 ```kotlin
-val expanded = Blake3.Hasher().apply { update(seed) }.finalizeXof(256)
+val expanded = BLAKE3.Hasher().apply { update(seed) }.finalizeXof(256)
 ```
 
 Use cases:

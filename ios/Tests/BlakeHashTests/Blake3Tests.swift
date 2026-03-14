@@ -1,32 +1,33 @@
+import Foundation
 import Testing
 @testable import BlakeHash
 
 // MARK: - Named input tests
 
 @Suite("BLAKE3 Hash — Named Inputs")
-struct Blake3NamedTests {
+struct BLAKE3NamedTests {
 
     @Test("empty input")
     func empty() {
-        let hash = Blake3.hash([])
+        let hash = BLAKE3.hash(Data())
         #expect(toHex(hash) == "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262")
     }
 
     @Test("\"abc\"")
     func abc() {
-        let hash = Blake3.hash(Array("abc".utf8))
+        let hash = BLAKE3.hash(Data("abc".utf8))
         #expect(toHex(hash) == "6437b3ac38465133ffb63b75273a8db548c558465d79db03fd359c6cd5bd9d85")
     }
 
     @Test("\"IETF\"")
     func ietf() {
-        let hash = Blake3.hash(Array("IETF".utf8))
+        let hash = BLAKE3.hash(Data("IETF".utf8))
         #expect(toHex(hash) == "83a2de1ee6f4e6ab686889248f4ec0cf4cc5709446a682ffd1cbb4d6165181e2")
     }
 
     @Test("\"The quick brown fox jumps over the lazy dog\"")
     func quickBrownFox() {
-        let hash = Blake3.hash(Array("The quick brown fox jumps over the lazy dog".utf8))
+        let hash = BLAKE3.hash(Data("The quick brown fox jumps over the lazy dog".utf8))
         #expect(toHex(hash) == "2f1514181aadccd913abd94cfa592701a5686ab23f8df1dff1b74710febc6d4a")
     }
 }
@@ -34,7 +35,7 @@ struct Blake3NamedTests {
 // MARK: - Sequential (i%251) test vectors
 
 @Suite("BLAKE3 Hash — Sequential Vectors")
-struct Blake3SequentialTests {
+struct BLAKE3SequentialTests {
 
     static let vectors: [(len: Int, hash: String)] = [
         (0, "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262"),
@@ -61,7 +62,7 @@ struct Blake3SequentialTests {
     @Test("sequential vector", arguments: vectors)
     func sequentialVector(vector: (len: Int, hash: String)) {
         let input = blake3Input(vector.len)
-        let hash = Blake3.hash(input)
+        let hash = BLAKE3.hash(input)
         #expect(toHex(hash) == vector.hash, "Failed for input length \(vector.len)")
     }
 }
@@ -69,15 +70,15 @@ struct Blake3SequentialTests {
 // MARK: - Streaming parity
 
 @Suite("BLAKE3 Hash — Streaming")
-struct Blake3StreamingTests {
+struct BLAKE3StreamingTests {
 
     @Test("one-shot equals incremental for \"abc\"")
     func oneShotEqualsIncremental() {
         let input = Array("abc".utf8)
-        let oneShot = Blake3.hash(input)
+        let oneShot = BLAKE3.hash(Data(input))
 
-        var hasher = Blake3.Hasher()
-        hasher.update(input)
+        var hasher = BLAKE3.Hasher()
+        hasher.update(Data(input))
         let incremental = hasher.finalize()
 
         #expect(oneShot == incremental)
@@ -86,11 +87,11 @@ struct Blake3StreamingTests {
     @Test("byte-by-byte streaming matches one-shot")
     func byteByByte() {
         let input = blake3Input(1025)
-        let oneShot = Blake3.hash(input)
+        let oneShot = BLAKE3.hash(input)
 
-        var hasher = Blake3.Hasher()
+        var hasher = BLAKE3.Hasher()
         for byte in input {
-            hasher.update([byte])
+            hasher.update(Data([byte]))
         }
         let streamed = hasher.finalize()
 
@@ -100,14 +101,14 @@ struct Blake3StreamingTests {
     @Test("multi-chunk streaming matches one-shot")
     func multiChunk() {
         let input = blake3Input(4096)
-        let oneShot = Blake3.hash(input)
+        let oneShot = BLAKE3.hash(input)
 
-        var hasher = Blake3.Hasher()
+        var hasher = BLAKE3.Hasher()
         let chunkSize = 100
         var offset = 0
         while offset < input.count {
             let end = min(offset + chunkSize, input.count)
-            hasher.update(Array(input[offset..<end]))
+            hasher.update(input[offset..<end])
             offset = end
         }
         let streamed = hasher.finalize()

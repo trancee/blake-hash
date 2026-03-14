@@ -20,7 +20,7 @@ private let blake2SigmaFlat: [Int] = [
 
 // MARK: - Variant Protocol
 
-internal protocol Blake2Variant {
+internal protocol BLAKE2Variant {
     associatedtype Word: FixedWidthInteger & UnsignedInteger & Sendable
     static var iv: [Word] { get }
     static var blockSize: Int { get }
@@ -38,7 +38,7 @@ internal protocol Blake2Variant {
 
 // MARK: - BLAKE2b Constants
 
-internal enum Blake2bVariant: Blake2Variant {
+internal enum BLAKE2bVariant: BLAKE2Variant {
     typealias Word = UInt64
     static let iv: [UInt64] = [
         0x6a09e667f3bcc908, 0xbb67ae8584caa73b,
@@ -67,7 +67,7 @@ internal enum Blake2bVariant: Blake2Variant {
 
 // MARK: - BLAKE2s Constants
 
-internal enum Blake2sVariant: Blake2Variant {
+internal enum BLAKE2sVariant: BLAKE2Variant {
     typealias Word = UInt32
     static let iv: [UInt32] = [
         0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
@@ -252,7 +252,7 @@ private func blake2sCompressImpl(
 
 // MARK: - Streaming Engine
 
-internal struct Blake2Engine<V: Blake2Variant>: Sendable {
+internal struct BLAKE2Engine<V: BLAKE2Variant>: Sendable {
     private var h: [V.Word]
     private var t0: V.Word
     private var t1: V.Word
@@ -413,7 +413,7 @@ internal func blake2bInitializeState(
     for i in 0..<min(salt.count, 16) { p[32 + i] = salt[i] }
     for i in 0..<min(personalization.count, 16) { p[48 + i] = personalization[i] }
 
-    var h = Blake2bVariant.iv
+    var h = BLAKE2bVariant.iv
     p.withUnsafeBytes { pRaw in
         h.withUnsafeMutableBufferPointer { hBuf in
             let hp = hBuf.baseAddress!
@@ -461,7 +461,7 @@ internal func blake2sInitializeState(
     for i in 0..<min(salt.count, 8) { p[16 + i] = salt[i] }
     for i in 0..<min(personalization.count, 8) { p[24 + i] = personalization[i] }
 
-    var h = Blake2sVariant.iv
+    var h = BLAKE2sVariant.iv
     p.withUnsafeBytes { pRaw in
         h.withUnsafeMutableBufferPointer { hBuf in
             let hp = hBuf.baseAddress!

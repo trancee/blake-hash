@@ -5,7 +5,7 @@ import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 
-class Blake2spTest {
+class BLAKE2spTest {
 
     // ── Helpers ──────────────────────────────────────────────────────────
 
@@ -20,7 +20,7 @@ class Blake2spTest {
     @Test fun `BLAKE2sp abc`() {
         assertEquals(
             "70f75b58f1fecab821db43c88ad84edde5a52600616cd22517b7bb14d440a7d5",
-            Blake2sp.hash("abc".toByteArray()).toHex()
+            BLAKE2sp.hash("abc".toByteArray()).toHex()
         )
     }
 
@@ -30,7 +30,7 @@ class Blake2spTest {
         val key = ByteArray(32) { it.toByte() }
         assertEquals(
             "b334a26923410dc586088f365ce36a12bedd33e03c0f4a3808a716dca3a721f0",
-            Blake2sp.hash("abc".toByteArray(), key = key).toHex()
+            BLAKE2sp.hash("abc".toByteArray(), key = key).toHex()
         )
     }
 
@@ -38,8 +38,8 @@ class Blake2spTest {
 
     @Test fun `BLAKE2sp differs from BLAKE2s for same input`() {
         val input = "abc".toByteArray()
-        val b2s = Blake2s.hash(input)
-        val b2sp = Blake2sp.hash(input)
+        val b2s = BLAKE2s.hash(input)
+        val b2sp = BLAKE2sp.hash(input)
         assertFalse(b2s.contentEquals(b2sp), "BLAKE2sp must differ from BLAKE2s")
     }
 
@@ -47,8 +47,8 @@ class Blake2spTest {
 
     @Test fun `BLAKE2sp streaming matches one-shot`() {
         val input = "abc".toByteArray()
-        val oneShot = Blake2sp.hash(input)
-        val streamed = Blake2sp.Hasher()
+        val oneShot = BLAKE2sp.hash(input)
+        val streamed = BLAKE2sp.Hasher()
             .update(byteArrayOf(0x61))
             .update(byteArrayOf(0x62))
             .update(byteArrayOf(0x63))
@@ -58,8 +58,8 @@ class Blake2spTest {
 
     @Test fun `BLAKE2sp streaming large input`() {
         val data = sequentialBytes(1024)
-        val oneShot = Blake2sp.hash(data)
-        val hasher = Blake2sp.Hasher()
+        val oneShot = BLAKE2sp.hash(data)
+        val hasher = BLAKE2sp.Hasher()
         var offset = 0
         val chunks = intArrayOf(1, 7, 13, 64, 128, 256, 512, 43)
         var ci = 0

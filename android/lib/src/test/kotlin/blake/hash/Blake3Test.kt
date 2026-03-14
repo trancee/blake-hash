@@ -4,7 +4,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertContentEquals
 
-class Blake3Test {
+class BLAKE3Test {
 
     // ---- Helpers ----
 
@@ -22,28 +22,28 @@ class Blake3Test {
     @Test fun `hash empty`() {
         assertEquals(
             "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
-            Blake3.hash(ByteArray(0)).toHex()
+            BLAKE3.hash(ByteArray(0)).toHex()
         )
     }
 
     @Test fun `hash abc`() {
         assertEquals(
             "6437b3ac38465133ffb63b75273a8db548c558465d79db03fd359c6cd5bd9d85",
-            Blake3.hash("abc".encodeToByteArray()).toHex()
+            BLAKE3.hash("abc".encodeToByteArray()).toHex()
         )
     }
 
     @Test fun `hash IETF`() {
         assertEquals(
             "83a2de1ee6f4e6ab686889248f4ec0cf4cc5709446a682ffd1cbb4d6165181e2",
-            Blake3.hash("IETF".encodeToByteArray()).toHex()
+            BLAKE3.hash("IETF".encodeToByteArray()).toHex()
         )
     }
 
     @Test fun `hash quick brown fox`() {
         assertEquals(
             "2f1514181aadccd913abd94cfa592701a5686ab23f8df1dff1b74710febc6d4a",
-            Blake3.hash("The quick brown fox jumps over the lazy dog".encodeToByteArray()).toHex()
+            BLAKE3.hash("The quick brown fox jumps over the lazy dog".encodeToByteArray()).toHex()
         )
     }
 
@@ -109,8 +109,8 @@ class Blake3Test {
     // ---- Streaming consistency ----
 
     @Test fun `streaming matches one-shot for abc`() {
-        val expected = Blake3.hash("abc".encodeToByteArray())
-        val hasher = Blake3.Hasher()
+        val expected = BLAKE3.hash("abc".encodeToByteArray())
+        val hasher = BLAKE3.Hasher()
         for (b in "abc".encodeToByteArray()) {
             hasher.update(byteArrayOf(b))
         }
@@ -120,6 +120,6 @@ class Blake3Test {
     // ---- Helper ----
 
     private fun assertHash(len: Int, expectedHex: String) {
-        assertEquals(expectedHex, Blake3.hash(blake3Input(len)).toHex())
+        assertEquals(expectedHex, BLAKE3.hash(blake3Input(len)).toHex())
     }
 }

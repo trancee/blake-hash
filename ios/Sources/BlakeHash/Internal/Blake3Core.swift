@@ -3,7 +3,7 @@
 
 // MARK: - Constants
 
-internal enum Blake3Constants {
+internal enum BLAKE3Constants {
     static let BLOCK_LEN = 64
     static let CHUNK_LEN = 1024
     static let KEY_LEN = 32
@@ -175,7 +175,7 @@ internal func bytesFromWords(_ words: [UInt32]) -> [UInt8] {
 
 // MARK: - Output (for root finalization / XOF)
 
-internal struct Blake3Output {
+internal struct BLAKE3Output {
     let inputChainingValue: [UInt32]
     let blockWords: [UInt32]
     let counter: UInt64
@@ -207,7 +207,7 @@ internal struct Blake3Output {
                 blockWords: blockWords,
                 counter: outputBlockCounter,
                 blockLen: blockLen,
-                flags: flags | Blake3Constants.ROOT,
+                flags: flags | BLAKE3Constants.ROOT,
                 out: &compressOut
             )
             let needed = min(64, outputLength - written)
@@ -227,7 +227,7 @@ internal struct Blake3Output {
 
 // MARK: - Chunk State
 
-internal struct Blake3ChunkState {
+internal struct BLAKE3ChunkState {
     var chainingValue: [UInt32]
     var chunkCounter: UInt64
     var block: [UInt8]
@@ -241,7 +241,7 @@ internal struct Blake3ChunkState {
     init(key: [UInt32], chunkCounter: UInt64, flags: UInt32) {
         self.chainingValue = key
         self.chunkCounter = chunkCounter
-        self.block = [UInt8](repeating: 0, count: Blake3Constants.BLOCK_LEN)
+        self.block = [UInt8](repeating: 0, count: BLAKE3Constants.BLOCK_LEN)
         self.blockLen = 0
         self.blocksCompressed = 0
         self.flags = flags
@@ -250,11 +250,11 @@ internal struct Blake3ChunkState {
     }
 
     var totalLen: Int {
-        Blake3Constants.BLOCK_LEN * blocksCompressed + blockLen
+        BLAKE3Constants.BLOCK_LEN * blocksCompressed + blockLen
     }
 
     private var startFlag: UInt32 {
-        blocksCompressed == 0 ? Blake3Constants.CHUNK_START : 0
+        blocksCompressed == 0 ? BLAKE3Constants.CHUNK_START : 0
     }
 
     mutating func update(_ input: [UInt8], offset inputOffset: Int = 0, length inputLength: Int? = nil) {
@@ -262,7 +262,7 @@ internal struct Blake3ChunkState {
         var offset = inputOffset
         let end = inputOffset + length
         while offset < end {
-            if blockLen == Blake3Constants.BLOCK_LEN {
+            if blockLen == BLAKE3Constants.BLOCK_LEN {
                 // Load block words using unaligned loads
                 block.withUnsafeBytes { blockRaw in
                     blockWords.withUnsafeMutableBufferPointer { wBuf in
@@ -281,17 +281,17 @@ internal struct Blake3ChunkState {
                     chainingValue: chainingValue,
                     blockWords: blockWords,
                     counter: counter,
-                    blockLen: UInt32(Blake3Constants.BLOCK_LEN),
+                    blockLen: UInt32(BLAKE3Constants.BLOCK_LEN),
                     flags: compressFlags,
                     out: &compressOut
                 )
                 for i in 0..<8 { chainingValue[i] = compressOut[i] }
                 blocksCompressed += 1
-                for i in 0..<Blake3Constants.BLOCK_LEN { block[i] = 0 }
+                for i in 0..<BLAKE3Constants.BLOCK_LEN { block[i] = 0 }
                 blockLen = 0
             }
 
-            let want = Blake3Constants.BLOCK_LEN - blockLen
+            let want = BLAKE3Constants.BLOCK_LEN - blockLen
             let take = min(want, end - offset)
             let bl = blockLen
             block.withUnsafeMutableBytes { bufRaw in
@@ -305,7 +305,7 @@ internal struct Blake3ChunkState {
         }
     }
 
-    func output() -> Blake3Output {
+    func output() -> BLAKE3Output {
         var words = [UInt32](repeating: 0, count: 16)
         block.withUnsafeBytes { blockRaw in
             words.withUnsafeMutableBufferPointer { wBuf in
@@ -328,8 +328,8 @@ internal struct Blake3ChunkState {
             }
         }
         var blockFlags = flags | startFlag
-        blockFlags |= Blake3Constants.CHUNK_END
-        return Blake3Output(
+        blockFlags |= BLAKE3Constants.CHUNK_END
+        return BLAKE3Output(
             inputChainingValue: chainingValue,
             blockWords: words,
             counter: chunkCounter,
@@ -346,18 +346,18 @@ internal func blake3ParentOutput(
     rightChildCV: [UInt32],
     key: [UInt32],
     flags: UInt32
-) -> Blake3Output {
+) -> BLAKE3Output {
     var blockWords = [UInt32](repeating: 0, count: 16)
     for i in 0..<8 {
         blockWords[i] = leftChildCV[i]
         blockWords[i + 8] = rightChildCV[i]
     }
-    return Blake3Output(
+    return BLAKE3Output(
         inputChainingValue: key,
         blockWords: blockWords,
         counter: 0,
-        blockLen: UInt32(Blake3Constants.BLOCK_LEN),
-        flags: flags | Blake3Constants.PARENT
+        blockLen: UInt32(BLAKE3Constants.BLOCK_LEN),
+        flags: flags | BLAKE3Constants.PARENT
     )
 }
 
@@ -377,8 +377,8 @@ internal func blake3ParentCV(
 
 // MARK: - Hasher (internal engine)
 
-internal struct Blake3Engine {
-    var chunkState: Blake3ChunkState
+internal struct BLAKE3Engine {
+    var chunkState: BLAKE3ChunkState
     var key: [UInt32]
     var cvStack: [[UInt32]]
     var cvStackLen: Int
@@ -387,7 +387,7 @@ internal struct Blake3Engine {
     init(key: [UInt32], flags: UInt32) {
         self.key = key
         self.flags = flags
-        self.chunkState = Blake3ChunkState(key: key, chunkCounter: 0, flags: flags)
+        self.chunkState = BLAKE3ChunkState(key: key, chunkCounter: 0, flags: flags)
         self.cvStack = []
         self.cvStackLen = 0
     }
@@ -425,21 +425,21 @@ internal struct Blake3Engine {
     mutating func update(_ input: [UInt8]) {
         var offset = 0
         while offset < input.count {
-            if chunkState.totalLen == Blake3Constants.CHUNK_LEN {
+            if chunkState.totalLen == BLAKE3Constants.CHUNK_LEN {
                 let chunkCV = chunkState.output().chainingValue()
                 let completedChunkIndex = chunkState.chunkCounter
                 addChunkChainingValue(chunkCV, totalChunks: completedChunkIndex)
-                chunkState = Blake3ChunkState(key: key, chunkCounter: completedChunkIndex + 1, flags: flags)
+                chunkState = BLAKE3ChunkState(key: key, chunkCounter: completedChunkIndex + 1, flags: flags)
             }
 
-            let want = Blake3Constants.CHUNK_LEN - chunkState.totalLen
+            let want = BLAKE3Constants.CHUNK_LEN - chunkState.totalLen
             let take = min(want, input.count - offset)
             chunkState.update(input, offset: offset, length: take)
             offset += take
         }
     }
 
-    func finalOutput() -> Blake3Output {
+    func finalOutput() -> BLAKE3Output {
         var output = chunkState.output()
 
         var parentNodesRemaining = cvStackLen

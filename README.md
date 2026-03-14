@@ -40,7 +40,7 @@ repositories {
 }
 
 dependencies {
-    implementation("ch.trancee:blake-hash:1.0.3")
+    implementation("ch.trancee:blake-hash:1.1.0")
 }
 ```
 
@@ -52,7 +52,7 @@ Or in `Package.swift`:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/trancee/blake-hash.git", from: "1.0.3")
+    .package(url: "https://github.com/trancee/blake-hash.git", from: "1.1.0")
 ]
 ```
 
@@ -67,63 +67,64 @@ import BlakeHash
 ### Kotlin
 
 ```kotlin
-import blake.hash.Blake2b
-import blake.hash.Blake3
+import blake.hash.BLAKE2b
+import blake.hash.BLAKE3
 
 // BLAKE2b — one-shot hash
-val digest = Blake2b.hash("Hello".toByteArray())
+val digest = BLAKE2b.hash("Hello".toByteArray())
 
 // BLAKE2b — keyed hash (MAC)
-val mac = Blake2b.hash("Hello".toByteArray(), key = secretKey)
+val mac = BLAKE2b.hash("Hello".toByteArray(), key = secretKey)
 
 // BLAKE2b — streaming
-val hasher = Blake2b.Hasher()
+val hasher = BLAKE2b.Hasher()
 hasher.update(chunk1)
 hasher.update(chunk2)
 val result = hasher.finalize()
 
 // BLAKE3 — one-shot hash
-val b3 = Blake3.hash("Hello".toByteArray())
+val b3 = BLAKE3.hash("Hello".toByteArray())
 
 // BLAKE3 — keyed hash (MAC)
-val b3mac = Blake3.keyedHash(key32, "Hello".toByteArray())
+val b3mac = BLAKE3.keyedHash(key32, "Hello".toByteArray())
 
 // BLAKE3 — key derivation
-val derived = Blake3.deriveKey("myapp 2025-01-01", keyMaterial)
+val derived = BLAKE3.deriveKey("myapp 2025-01-01", keyMaterial)
 
 // BLAKE3 — XOF (extended output)
-val xof = Blake3.Hasher().apply { update("Hello".toByteArray()) }.finalizeXof(128)
+val xof = BLAKE3.Hasher().apply { update("Hello".toByteArray()) }.finalizeXof(128)
 ```
 
 ### Swift
 
 ```swift
+import Foundation
 import BlakeHash
 
 // BLAKE2b — one-shot hash
-let digest = Blake2b.hash(Array("Hello".utf8))
+let digest = BLAKE2b.hash(Data("Hello".utf8))
 
 // BLAKE2b — keyed hash (MAC)
-let mac = Blake2b.hash(Array("Hello".utf8), key: secretKey)
+let mac = BLAKE2b.hash(Data("Hello".utf8), key: secretKey)
 
 // BLAKE2b — streaming
-var hasher = Blake2b.Hasher()
+var hasher = BLAKE2b.Hasher()
 hasher.update(chunk1)
 hasher.update(chunk2)
 let result = hasher.finalize()
 
 // BLAKE3 — one-shot hash
-let b3 = Blake3.hash(Array("Hello".utf8))
+let b3 = BLAKE3.hash(Data("Hello".utf8))
 
 // BLAKE3 — keyed hash (MAC)
-let b3mac = Blake3.keyedHash(key: key32, data: Array("Hello".utf8))
+let b3mac = BLAKE3.keyedHash(key: key32, data: Data("Hello".utf8))
 
 // BLAKE3 — key derivation
-let derived = Blake3.deriveKey(context: "myapp 2025-01-01", keyMaterial: km)
+let derived = BLAKE3.deriveKey(context: "myapp 2025-01-01", keyMaterial: km)
 
 // BLAKE3 — XOF (extended output)
-var xofHasher = Blake3.Hasher()
-xofHasher.update(Array("Hello".utf8))
+var xofHasher = BLAKE3.Hasher()
+xofHasher.update(Data("Hello".utf8))
 let xof = xofHasher.finalizeXof(outputLength: 128)
 ```
 

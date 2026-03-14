@@ -7,7 +7,7 @@ import blake.hash.internal.*
  *
  * 64-bit variant with 128-byte blocks and up to 64-byte digests.
  */
-public class Blake2b private constructor() {
+public class BLAKE2b private constructor() {
 
     public companion object {
         private const val BLOCK_SIZE = 128
@@ -39,7 +39,7 @@ public class Blake2b private constructor() {
         salt: ByteArray = ByteArray(0),
         personalization: ByteArray = ByteArray(0)
     ) {
-        private val engine = Blake2bEngine(
+        private val engine = BLAKE2bEngine(
             digestLength = digestLength,
             key = key,
             salt = salt,
@@ -61,10 +61,10 @@ public class Blake2b private constructor() {
 }
 
 // ---------------------------------------------------------------------------
-// Internal engine – also used by Blake2bp
+// Internal engine – also used by BLAKE2bp
 // ---------------------------------------------------------------------------
 
-internal class Blake2bEngine(
+internal class BLAKE2bEngine(
     private val digestLength: Int,
     key: ByteArray = ByteArray(0),
     salt: ByteArray = ByteArray(0),
@@ -133,7 +133,7 @@ internal class Blake2bEngine(
         }
     }
 
-    fun update(input: ByteArray, offset: Int, length: Int): Blake2bEngine {
+    fun update(input: ByteArray, offset: Int, length: Int): BLAKE2bEngine {
         var pos = offset
         var remaining = length
         if (remaining == 0) return this

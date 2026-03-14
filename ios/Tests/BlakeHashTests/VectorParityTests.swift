@@ -27,35 +27,35 @@ struct SaltPersVector: Codable, Sendable {
     let expected: String
 }
 
-struct Blake2File: Codable, Sendable {
+struct BLAKE2File: Codable, Sendable {
     let hash: [HashVector]
     let keyed: KeyedSection
     let saltPersonalization: [SaltPersVector]?
 }
 
-struct Blake2ParallelFile: Codable, Sendable {
+struct BLAKE2ParallelFile: Codable, Sendable {
     let hash: [HashVector]
     let keyed: KeyedSection
 }
 
-struct Blake3HashSection: Codable, Sendable {
+struct BLAKE3HashSection: Codable, Sendable {
     let named: [HashVector]
     let sequential: [HashVector]
 }
 
-struct Blake3XofSection: Codable, Sendable {
+struct BLAKE3XofSection: Codable, Sendable {
     let hash: [HashVector]
     let keyed: [HashVector]
     let deriveKey: [HashVector]
 }
 
-struct Blake3File: Codable, Sendable {
+struct BLAKE3File: Codable, Sendable {
     let keyHex: String
     let deriveKeyContext: String
-    let hash: Blake3HashSection
+    let hash: BLAKE3HashSection
     let keyedHash: [HashVector]
     let deriveKey: [HashVector]
-    let xof: Blake3XofSection
+    let xof: BLAKE3XofSection
 }
 
 // MARK: - Vector loader
@@ -106,21 +106,25 @@ private enum VectorLoader {
     static func toHex(_ bytes: [UInt8]) -> String {
         bytes.map { String(format: "%02x", $0) }.joined()
     }
+
+    static func toHex(_ data: Data) -> String {
+        data.map { String(format: "%02x", $0) }.joined()
+    }
 }
 
 // MARK: - BLAKE2b vector parity
 
 @Suite("Vector Parity — BLAKE2b")
-struct Blake2bVectorParityTests {
-    static let file: Blake2File = {
+struct BLAKE2bVectorParityTests {
+    static let file: BLAKE2File = {
         let decoder = JSONDecoder()
-        return try! decoder.decode(Blake2File.self, from: VectorLoader.loadData("blake2b.json"))
+        return try! decoder.decode(BLAKE2File.self, from: VectorLoader.loadData("blake2b.json"))
     }()
 
     @Test("BLAKE2b hash", arguments: file.hash)
     func hashVector(v: HashVector) {
         let input = VectorLoader.resolveInput(v)
-        let actual = VectorLoader.toHex(Blake2b.hash(input, digestLength: v.digestBytes!))
+        let actual = VectorLoader.toHex(BLAKE2b.hash(Data(input), digestLength: v.digestBytes!))
         #expect(actual == v.expected)
     }
 
@@ -128,7 +132,7 @@ struct Blake2bVectorParityTests {
     func keyedVector(v: HashVector) {
         let key = VectorLoader.hexToBytes(Self.file.keyed.keyHex)
         let input = VectorLoader.resolveInput(v)
-        let actual = VectorLoader.toHex(Blake2b.hash(input, digestLength: v.digestBytes!, key: key))
+        let actual = VectorLoader.toHex(BLAKE2b.hash(Data(input), digestLength: v.digestBytes!, key: Data(key)))
         #expect(actual == v.expected)
     }
 
@@ -137,7 +141,7 @@ struct Blake2bVectorParityTests {
         let input = Array(v.input.utf8)
         let salt = Array(v.salt.utf8)
         let pers = Array(v.personalization.utf8)
-        let actual = VectorLoader.toHex(Blake2b.hash(input, digestLength: v.digestBytes, salt: salt, personalization: pers))
+        let actual = VectorLoader.toHex(BLAKE2b.hash(Data(input), digestLength: v.digestBytes, salt: Data(salt), personalization: Data(pers)))
         #expect(actual == v.expected)
     }
 }
@@ -145,16 +149,16 @@ struct Blake2bVectorParityTests {
 // MARK: - BLAKE2s vector parity
 
 @Suite("Vector Parity — BLAKE2s")
-struct Blake2sVectorParityTests {
-    static let file: Blake2File = {
+struct BLAKE2sVectorParityTests {
+    static let file: BLAKE2File = {
         let decoder = JSONDecoder()
-        return try! decoder.decode(Blake2File.self, from: VectorLoader.loadData("blake2s.json"))
+        return try! decoder.decode(BLAKE2File.self, from: VectorLoader.loadData("blake2s.json"))
     }()
 
     @Test("BLAKE2s hash", arguments: file.hash)
     func hashVector(v: HashVector) {
         let input = VectorLoader.resolveInput(v)
-        let actual = VectorLoader.toHex(Blake2s.hash(input, digestLength: v.digestBytes!))
+        let actual = VectorLoader.toHex(BLAKE2s.hash(Data(input), digestLength: v.digestBytes!))
         #expect(actual == v.expected)
     }
 
@@ -162,7 +166,7 @@ struct Blake2sVectorParityTests {
     func keyedVector(v: HashVector) {
         let key = VectorLoader.hexToBytes(Self.file.keyed.keyHex)
         let input = VectorLoader.resolveInput(v)
-        let actual = VectorLoader.toHex(Blake2s.hash(input, digestLength: v.digestBytes!, key: key))
+        let actual = VectorLoader.toHex(BLAKE2s.hash(Data(input), digestLength: v.digestBytes!, key: Data(key)))
         #expect(actual == v.expected)
     }
 }
@@ -170,16 +174,16 @@ struct Blake2sVectorParityTests {
 // MARK: - BLAKE2bp vector parity
 
 @Suite("Vector Parity — BLAKE2bp")
-struct Blake2bpVectorParityTests {
-    static let file: Blake2ParallelFile = {
+struct BLAKE2bpVectorParityTests {
+    static let file: BLAKE2ParallelFile = {
         let decoder = JSONDecoder()
-        return try! decoder.decode(Blake2ParallelFile.self, from: VectorLoader.loadData("blake2bp.json"))
+        return try! decoder.decode(BLAKE2ParallelFile.self, from: VectorLoader.loadData("blake2bp.json"))
     }()
 
     @Test("BLAKE2bp hash", arguments: file.hash)
     func hashVector(v: HashVector) {
         let input = VectorLoader.resolveInput(v)
-        let actual = VectorLoader.toHex(Blake2bp.hash(input))
+        let actual = VectorLoader.toHex(BLAKE2bp.hash(Data(input)))
         #expect(actual == v.expected)
     }
 
@@ -187,7 +191,7 @@ struct Blake2bpVectorParityTests {
     func keyedVector(v: HashVector) {
         let key = VectorLoader.hexToBytes(Self.file.keyed.keyHex)
         let input = VectorLoader.resolveInput(v)
-        let actual = VectorLoader.toHex(Blake2bp.hash(input, key: key))
+        let actual = VectorLoader.toHex(BLAKE2bp.hash(Data(input), key: Data(key)))
         #expect(actual == v.expected)
     }
 }
@@ -195,16 +199,16 @@ struct Blake2bpVectorParityTests {
 // MARK: - BLAKE2sp vector parity
 
 @Suite("Vector Parity — BLAKE2sp")
-struct Blake2spVectorParityTests {
-    static let file: Blake2ParallelFile = {
+struct BLAKE2spVectorParityTests {
+    static let file: BLAKE2ParallelFile = {
         let decoder = JSONDecoder()
-        return try! decoder.decode(Blake2ParallelFile.self, from: VectorLoader.loadData("blake2sp.json"))
+        return try! decoder.decode(BLAKE2ParallelFile.self, from: VectorLoader.loadData("blake2sp.json"))
     }()
 
     @Test("BLAKE2sp hash", arguments: file.hash)
     func hashVector(v: HashVector) {
         let input = VectorLoader.resolveInput(v)
-        let actual = VectorLoader.toHex(Blake2sp.hash(input))
+        let actual = VectorLoader.toHex(BLAKE2sp.hash(Data(input)))
         #expect(actual == v.expected)
     }
 
@@ -212,7 +216,7 @@ struct Blake2spVectorParityTests {
     func keyedVector(v: HashVector) {
         let key = VectorLoader.hexToBytes(Self.file.keyed.keyHex)
         let input = VectorLoader.resolveInput(v)
-        let actual = VectorLoader.toHex(Blake2sp.hash(input, key: key))
+        let actual = VectorLoader.toHex(BLAKE2sp.hash(Data(input), key: Data(key)))
         #expect(actual == v.expected)
     }
 }
@@ -220,23 +224,23 @@ struct Blake2spVectorParityTests {
 // MARK: - BLAKE3 vector parity
 
 @Suite("Vector Parity — BLAKE3")
-struct Blake3VectorParityTests {
-    static let file: Blake3File = {
+struct BLAKE3VectorParityTests {
+    static let file: BLAKE3File = {
         let decoder = JSONDecoder()
-        return try! decoder.decode(Blake3File.self, from: VectorLoader.loadData("blake3.json"))
+        return try! decoder.decode(BLAKE3File.self, from: VectorLoader.loadData("blake3.json"))
     }()
 
     @Test("BLAKE3 hash named", arguments: file.hash.named)
     func hashNamedVector(v: HashVector) {
         let input = Array((v.input ?? "").utf8)
-        let actual = VectorLoader.toHex(Blake3.hash(input))
+        let actual = VectorLoader.toHex(BLAKE3.hash(Data(input)))
         #expect(actual == v.expected)
     }
 
     @Test("BLAKE3 hash sequential", arguments: file.hash.sequential)
     func hashSequentialVector(v: HashVector) {
         let input = VectorLoader.blake3Input(v.inputLength!)
-        let actual = VectorLoader.toHex(Blake3.hash(input))
+        let actual = VectorLoader.toHex(BLAKE3.hash(Data(input)))
         #expect(actual == v.expected)
     }
 
@@ -244,22 +248,22 @@ struct Blake3VectorParityTests {
     func keyedHashVector(v: HashVector) {
         let key = VectorLoader.hexToBytes(Self.file.keyHex)
         let input = VectorLoader.blake3Input(v.inputLength!)
-        let actual = VectorLoader.toHex(Blake3.keyedHash(key: key, data: input))
+        let actual = VectorLoader.toHex(BLAKE3.keyedHash(key: Data(key), data: Data(input)))
         #expect(actual == v.expected)
     }
 
     @Test("BLAKE3 derive key", arguments: file.deriveKey)
     func deriveKeyVector(v: HashVector) {
         let input = VectorLoader.blake3Input(v.inputLength!)
-        let actual = VectorLoader.toHex(Blake3.deriveKey(context: Self.file.deriveKeyContext, keyMaterial: input))
+        let actual = VectorLoader.toHex(BLAKE3.deriveKey(context: Self.file.deriveKeyContext, keyMaterial: Data(input)))
         #expect(actual == v.expected)
     }
 
     @Test("BLAKE3 XOF hash", arguments: file.xof.hash)
     func xofHashVector(v: HashVector) {
         let input = Array((v.input ?? "").utf8)
-        var hasher = Blake3.Hasher()
-        hasher.update(input)
+        var hasher = BLAKE3.Hasher()
+        hasher.update(Data(input))
         let out = v.outputBytes == 32 ? hasher.finalize() : hasher.finalizeXof(outputLength: v.outputBytes!)
         #expect(VectorLoader.toHex(out) == v.expected)
     }
@@ -268,8 +272,8 @@ struct Blake3VectorParityTests {
     func xofKeyedVector(v: HashVector) {
         let input = Array((v.input ?? "").utf8)
         let key = VectorLoader.hexToBytes(Self.file.keyHex)
-        var hasher = Blake3.Hasher(key: key)
-        hasher.update(input)
+        var hasher = BLAKE3.Hasher(key: Data(key))
+        hasher.update(Data(input))
         let out = v.outputBytes == 32 ? hasher.finalize() : hasher.finalizeXof(outputLength: v.outputBytes!)
         #expect(VectorLoader.toHex(out) == v.expected)
     }
@@ -277,8 +281,8 @@ struct Blake3VectorParityTests {
     @Test("BLAKE3 XOF derive key", arguments: file.xof.deriveKey)
     func xofDeriveKeyVector(v: HashVector) {
         let input = Array((v.input ?? "").utf8)
-        var hasher = Blake3.Hasher.deriveKey(context: Self.file.deriveKeyContext)
-        hasher.update(input)
+        var hasher = BLAKE3.Hasher.deriveKey(context: Self.file.deriveKeyContext)
+        hasher.update(Data(input))
         let out = v.outputBytes == 32 ? hasher.finalize() : hasher.finalizeXof(outputLength: v.outputBytes!)
         #expect(VectorLoader.toHex(out) == v.expected)
     }

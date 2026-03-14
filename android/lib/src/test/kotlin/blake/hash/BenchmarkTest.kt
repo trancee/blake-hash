@@ -39,26 +39,26 @@ class BenchmarkTest {
     }
 
     @Test fun `benchmark BLAKE2b-512`() {
-        for (size in dataSizes) benchmark("BLAKE2b-512", size) { Blake2b.hash(it) }
+        for (size in dataSizes) benchmark("BLAKE2b-512", size) { BLAKE2b.hash(it) }
     }
 
     @Test fun `benchmark BLAKE2b-256`() {
-        for (size in dataSizes) benchmark("BLAKE2b-256", size) { Blake2b.hash(it, digestLength = 32) }
+        for (size in dataSizes) benchmark("BLAKE2b-256", size) { BLAKE2b.hash(it, digestLength = 32) }
     }
 
     @Test fun `benchmark BLAKE2s-256`() {
-        for (size in dataSizes) benchmark("BLAKE2s-256", size) { Blake2s.hash(it) }
+        for (size in dataSizes) benchmark("BLAKE2s-256", size) { BLAKE2s.hash(it) }
     }
 
     @Test fun `benchmark BLAKE2bp`() {
-        for (size in dataSizes) benchmark("BLAKE2bp", size) { Blake2bp.hash(it) }
+        for (size in dataSizes) benchmark("BLAKE2bp", size) { BLAKE2bp.hash(it) }
     }
 
     @Test fun `benchmark BLAKE2sp`() {
-        for (size in dataSizes) benchmark("BLAKE2sp", size) { Blake2sp.hash(it) }
+        for (size in dataSizes) benchmark("BLAKE2sp", size) { BLAKE2sp.hash(it) }
     }
 
     @Test fun `benchmark BLAKE3`() {
-        for (size in dataSizes) benchmark("BLAKE3", size) { Blake3.hash(it) }
+        for (size in dataSizes) benchmark("BLAKE3", size) { BLAKE3.hash(it) }
     }
 }

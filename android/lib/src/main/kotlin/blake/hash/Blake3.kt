@@ -1,13 +1,13 @@
 package blake.hash
 
-import blake.hash.internal.Blake3Core
-import blake.hash.internal.Blake3Core.CHUNK_LEN
-import blake.hash.internal.Blake3Core.DERIVE_KEY_CONTEXT
-import blake.hash.internal.Blake3Core.DERIVE_KEY_MATERIAL
-import blake.hash.internal.Blake3Core.IV
-import blake.hash.internal.Blake3Core.KEYED_HASH
-import blake.hash.internal.Blake3Core.KEY_LEN
-import blake.hash.internal.Blake3Core.OUT_LEN
+import blake.hash.internal.BLAKE3Core
+import blake.hash.internal.BLAKE3Core.CHUNK_LEN
+import blake.hash.internal.BLAKE3Core.DERIVE_KEY_CONTEXT
+import blake.hash.internal.BLAKE3Core.DERIVE_KEY_MATERIAL
+import blake.hash.internal.BLAKE3Core.IV
+import blake.hash.internal.BLAKE3Core.KEYED_HASH
+import blake.hash.internal.BLAKE3Core.KEY_LEN
+import blake.hash.internal.BLAKE3Core.OUT_LEN
 
 /**
  * BLAKE3 cryptographic hash function.
@@ -15,7 +15,7 @@ import blake.hash.internal.Blake3Core.OUT_LEN
  * Supports hash, keyed hash (MAC/PRF), and key derivation modes,
  * with extendable output (XOF).
  */
-public class Blake3 private constructor() {
+public class BLAKE3 private constructor() {
 
     public companion object {
         /** Hash mode — returns 32-byte digest. */
@@ -41,7 +41,7 @@ public class Blake3 private constructor() {
         private val key: IntArray,
         private val baseFlags: Int
     ) {
-        private var chunkState = Blake3Core.ChunkState(key, 0, baseFlags)
+        private var chunkState = BLAKE3Core.ChunkState(key, 0, baseFlags)
         private val cvStack = Array(54) { IntArray(8) } // max tree depth
         private var cvStackLen = 0
         private var chunkCount: Long = 0
@@ -64,7 +64,7 @@ public class Blake3 private constructor() {
 
             private fun keyWords(key: ByteArray): IntArray {
                 require(key.size == KEY_LEN) { "Key must be exactly $KEY_LEN bytes" }
-                return IntArray(8) { Blake3Core.leToInt(key, it * 4) }
+                return IntArray(8) { BLAKE3Core.leToInt(key, it * 4) }
             }
         }
 
@@ -99,7 +99,7 @@ public class Blake3 private constructor() {
             val chunkCv = chunkState.output().chainingValueWords()
             chunkCount++
             addChunkCv(chunkCv)
-            chunkState = Blake3Core.ChunkState(key, chunkCount, baseFlags)
+            chunkState = BLAKE3Core.ChunkState(key, chunkCount, baseFlags)
         }
 
         /**
@@ -116,14 +116,14 @@ public class Blake3 private constructor() {
                 val right = cvStack[cvStackLen]
                 cvStackLen--
                 val left = cvStack[cvStackLen]
-                val parent = Blake3Core.parentChainingValue(left, right, key, baseFlags)
+                val parent = BLAKE3Core.parentChainingValue(left, right, key, baseFlags)
                 parent.copyInto(cvStack[cvStackLen])
                 cvStackLen++
                 totalChunks = totalChunks ushr 1
             }
         }
 
-        private fun rootOutput(): Blake3Core.Output {
+        private fun rootOutput(): BLAKE3Core.Output {
             // Finalize the current (possibly partial) chunk
             var output = chunkState.output()
             var cv = output.chainingValueWords()
@@ -137,12 +137,12 @@ public class Blake3 private constructor() {
 
             // The current chunk is the rightmost child
             while (idx > 0) {
-                cv = Blake3Core.parentChainingValue(cvStack[idx], cv, key, baseFlags)
+                cv = BLAKE3Core.parentChainingValue(cvStack[idx], cv, key, baseFlags)
                 idx--
             }
 
             // Last merge gets ROOT flag via parentOutput
-            return Blake3Core.parentOutput(cvStack[0], cv, key, baseFlags)
+            return BLAKE3Core.parentOutput(cvStack[0], cv, key, baseFlags)
         }
     }
 }

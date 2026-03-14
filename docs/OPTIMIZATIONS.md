@@ -43,7 +43,7 @@ before/after throughput measurements on 1 MB payloads.
 
 ### 1. Pre-allocated compression working arrays (Swift)
 
-**Files:** `Blake2Core.swift`, `Blake3Core.swift`
+**Files:** `BLAKE2Core.swift`, `BLAKE3Core.swift`
 
 The compression function is called once per block — roughly 8,000 times for a
 1 MB BLAKE2b hash. The original code allocated fresh `m` (message words) and
@@ -56,7 +56,7 @@ var v = [V.Word](repeating: 0, count: 16)
 ```
 
 Each allocation involves heap allocation + ARC overhead. Moving these to
-pre-allocated instance fields on `Blake2Engine` eliminates thousands of
+pre-allocated instance fields on `BLAKE2Engine` eliminates thousands of
 allocations per hash:
 
 ```swift
@@ -76,7 +76,7 @@ improvement on BLAKE2b and BLAKE2s.
 
 ### 2. In-place BLAKE3 compression (Swift)
 
-**File:** `Blake3Core.swift`
+**File:** `BLAKE3Core.swift`
 
 Added `blake3CompressInto()` that writes directly into a pre-allocated output
 array instead of allocating a new 16-word array on every call:
@@ -89,8 +89,8 @@ func blake3Compress(...) -> [UInt32]
 func blake3CompressInto(..., out: inout [UInt32])
 ```
 
-`Blake3ChunkState` now holds pre-allocated `blockWords` and `compressOut`
-arrays, and `Blake3Output.rootOutputBytes()` reuses a single `compressOut`
+`BLAKE3ChunkState` now holds pre-allocated `blockWords` and `compressOut`
+arrays, and `BLAKE3Output.rootOutputBytes()` reuses a single `compressOut`
 buffer across XOF counter blocks.
 
 **Impact:** Combined with the `wordsFromBytes` elimination (below), this
@@ -98,9 +98,9 @@ produces the 106% improvement on BLAKE3.
 
 ### 3. Eliminated `wordsFromBytes` allocations in BLAKE3 (Swift)
 
-**File:** `Blake3Core.swift`
+**File:** `BLAKE3Core.swift`
 
-`Blake3ChunkState.update()` previously called `wordsFromBytes(block)` on every
+`BLAKE3ChunkState.update()` previously called `wordsFromBytes(block)` on every
 full-block compression, allocating a new `[UInt32]` each time. Replaced with
 inline little-endian word loading into the pre-allocated `blockWords` array:
 
@@ -117,8 +117,8 @@ instead of calling `wordsFromBytes` on the full 64-byte block buffer.
 
 ### 4. Replaced element-by-element copy loops (Swift)
 
-**Files:** `Blake2Core.swift`, `Blake2bp.swift`, `Blake2sp.swift`,
-`Blake3Core.swift`
+**Files:** `BLAKE2Core.swift`, `BLAKE2bp.swift`, `BLAKE2sp.swift`,
+`BLAKE3Core.swift`
 
 Manual byte-copy loops were replaced with `Array.replaceSubrange` which the
 Swift compiler can lower to `memcpy`:
@@ -134,7 +134,7 @@ buffer.replaceSubrange(bufferLength..<(bufferLength + toCopy),
 
 ### 5. Fixed-size CV stack for BLAKE3 tree (Kotlin)
 
-**File:** `Blake3.kt`
+**File:** `BLAKE3.kt`
 
 Replaced `ArrayList<IntArray>` with a pre-allocated `Array(54) { IntArray(8) }`
 and a manual length counter. This eliminates ArrayList's internal array
@@ -154,7 +154,7 @@ cv.copyInto(cvStack[cvStackLen]); cvStackLen++
 
 ### 6. Reduced intermediate copies in BLAKE3 Output (Kotlin)
 
-**File:** `Blake3Core.kt`
+**File:** `BLAKE3Core.kt`
 
 - `chainingValueWords()` now returns from a pre-allocated `cvOut` array
   instead of `compressOut.copyOfRange(0, 8)` which allocated a new array
@@ -167,7 +167,7 @@ cv.copyInto(cvStack[cvStackLen]); cvStackLen++
 
 ### 7. Unsafe pointer–based compression functions
 
-**Files:** `Blake2Core.swift`, `Blake3Core.swift`
+**Files:** `BLAKE2Core.swift`, `BLAKE3Core.swift`
 
 The compression function is the hottest code path — called ~8,000 times for a
 1 MB BLAKE2b hash, with each call performing hundreds of array element
@@ -202,10 +202,10 @@ h.withUnsafeMutableBufferPointer { hBuf in
 
 ### 8. Specialized G mixing functions with hardcoded rotations
 
-**Files:** `Blake2Core.swift`, `Blake3Core.swift`
+**Files:** `BLAKE2Core.swift`, `BLAKE3Core.swift`
 
 The original generic `blake2G<W>` function passed rotation constants as runtime
-parameters via the `Blake2Variant` protocol. This prevented the compiler from
+parameters via the `BLAKE2Variant` protocol. This prevented the compiler from
 emitting single-instruction rotates. Replaced with dedicated functions per
 variant that use `UnsafeMutablePointer` and compile-time constant rotations:
 
@@ -229,13 +229,13 @@ func blake2bG(
 
 Three specialized G functions: `blake2bG` (UInt64, rotations 32/24/16/63),
 `blake2sG` (UInt32, rotations 16/12/8/7), and `blake3G` (UInt32, rotations
-16/12/8/7). The `Blake2Variant` protocol now includes a `compress` static
-method so the generic `Blake2Engine` dispatches to the correct specialized
+16/12/8/7). The `BLAKE2Variant` protocol now includes a `compress` static
+method so the generic `BLAKE2Engine` dispatches to the correct specialized
 implementation.
 
 ### 9. Single-instruction LE word loading via `loadUnaligned`
 
-**Files:** `Blake2Core.swift`, `Blake3Core.swift`
+**Files:** `BLAKE2Core.swift`, `BLAKE3Core.swift`
 
 The original `blake2LoadLE<W>` used a generic byte-by-byte loop — 8 iterations
 with 8 bounds-checked array accesses for each UInt64 word. Replaced with
@@ -263,7 +263,7 @@ compression call.
 
 ### 10. Flattened permutation tables
 
-**Files:** `Blake2Core.swift`, `Blake3Core.swift`
+**Files:** `BLAKE2Core.swift`, `BLAKE3Core.swift`
 
 The SIGMA / MSG_PERMUTATION tables were stored as `[[Int]]` (array of arrays).
 Each access involved two levels of indirection: outer array bounds check →
@@ -284,7 +284,7 @@ blake2bG(..., mp[s[0]], mp[s[1]])
 
 ### 11. Pointer-based buffer copies
 
-**Files:** `Blake2Core.swift`, `Blake3Core.swift`
+**Files:** `BLAKE2Core.swift`, `BLAKE3Core.swift`
 
 Replaced `Array.replaceSubrange` and byte-loop copies with direct
 `UnsafeRawPointer.copyMemory` for buffer operations:
@@ -312,7 +312,7 @@ directly to bytes via `copyMemory` instead of per-word `blake2StoreLE` calls.
 
 ### 12. Local-variable state vector in compression
 
-**Files:** `Blake2b.kt`, `Blake2s.kt`, `Blake3Core.kt`
+**Files:** `BLAKE2b.kt`, `BLAKE2s.kt`, `BLAKE3Core.kt`
 
 The compression function's 16-element working vector was stored in an
 `IntArray`/`LongArray` — every access incurred a JVM bounds check. Replacing
@@ -338,7 +338,7 @@ biggest JVM optimization.
 
 ### 13. Inlined G mixing function
 
-**Files:** `Blake2b.kt`, `Blake2s.kt`, `Blake3Core.kt`
+**Files:** `BLAKE2b.kt`, `BLAKE2s.kt`, `BLAKE3Core.kt`
 
 The `g()` method was removed and its body inlined directly into the compression
 loop. While HotSpot should inline small private methods, explicit inlining
@@ -355,7 +355,7 @@ single `ROR` instructions on ARM64 and `ror` on x86-64.
 
 ### 14. Flattened permutation tables (Kotlin)
 
-**Files:** `Blake2Core.kt`, `Blake3Core.kt`
+**Files:** `BLAKE2Core.kt`, `BLAKE3Core.kt`
 
 Same approach as Swift (§10). The SIGMA table for BLAKE2 was
 `Array<IntArray>` (10 rows × 16 elements) — two levels of array indirection.
@@ -378,7 +378,7 @@ flattened to `MSG_PERM`.
 
 ### 15. VarHandle-based little-endian word loading
 
-**File:** `Blake2Core.kt`, `Blake3Core.kt`
+**File:** `BLAKE2Core.kt`, `BLAKE3Core.kt`
 
 The original `loadLong` assembled 8 bytes one at a time — 8 array accesses
 with bounds checks, 8 `toLong()` + mask operations, and 7 shifts. Replaced
@@ -408,7 +408,7 @@ this eliminates 16 × 7 = 112 redundant byte accesses per compress call.
 
 ### 16. Pre-allocated message word array
 
-**Files:** `Blake2b.kt`, `Blake2s.kt`
+**Files:** `BLAKE2b.kt`, `BLAKE2s.kt`
 
 The message word array `m` was moved from a local allocation in `compress()`
 to a pre-allocated instance field:
@@ -465,7 +465,7 @@ through those indices comes from external input.
 2. **Internal visibility** — the unsafe functions (`blake2bG`, `blake2sG`,
    `blake3G`, `blake2bCompressImpl`, `blake2sCompressImpl`,
    `blake3CompressInto`) are all `private` or `internal`. The public API
-   (`Blake2b`, `Blake2s`, `Blake3`) validates inputs via preconditions before
+   (`BLAKE2b`, `BLAKE2s`, `BLAKE3`) validates inputs via preconditions before
    any unsafe code runs.
 
 3. **`min()` guards on copies** — every `copyMemory` call caps `byteCount`

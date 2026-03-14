@@ -5,7 +5,7 @@ import Testing
 // MARK: - Codable types for upstream JSON formats
 
 /// BLAKE2 KAT entry: {"hash":"blake2b","in":"hex","key":"hex","out":"hex"}
-struct Blake2KatEntry: Codable, Sendable {
+struct BLAKE2KatEntry: Codable, Sendable {
     let hash: String
     let input: String
     let key: String
@@ -20,13 +20,13 @@ struct Blake2KatEntry: Codable, Sendable {
 }
 
 /// BLAKE3 official case: {"input_len":N,"hash":"hex","keyed_hash":"hex","derive_key":"hex"}
-struct Blake3OfficialFile: Codable, Sendable {
+struct BLAKE3OfficialFile: Codable, Sendable {
     let key: String
     let context_string: String
-    let cases: [Blake3OfficialCase]
+    let cases: [BLAKE3OfficialCase]
 }
 
-struct Blake3OfficialCase: Codable, Sendable {
+struct BLAKE3OfficialCase: Codable, Sendable {
     let input_len: Int
     let hash: String
     let keyed_hash: String
@@ -70,42 +70,46 @@ private enum UpstreamLoader {
         bytes.map { String(format: "%02x", $0) }.joined()
     }
 
+    static func toHex(_ data: Data) -> String {
+        data.map { String(format: "%02x", $0) }.joined()
+    }
+
     // BLAKE2 KAT vectors filtered by algorithm and keyed/unkeyed
-    static let blake2Kat: [Blake2KatEntry] = {
+    static let blake2Kat: [BLAKE2KatEntry] = {
         let decoder = JSONDecoder()
-        return try! decoder.decode([Blake2KatEntry].self, from: loadData("blake2-kat.json"))
+        return try! decoder.decode([BLAKE2KatEntry].self, from: loadData("blake2-kat.json"))
     }()
 
-    static func blake2Vectors(algorithm: String, keyed: Bool) -> [Blake2KatEntry] {
+    static func blake2Vectors(algorithm: String, keyed: Bool) -> [BLAKE2KatEntry] {
         blake2Kat.filter { $0.hash == algorithm && (keyed ? !$0.key.isEmpty : $0.key.isEmpty) }
     }
 
     // BLAKE3 official vectors
-    static let blake3File: Blake3OfficialFile = {
+    static let blake3File: BLAKE3OfficialFile = {
         let decoder = JSONDecoder()
-        return try! decoder.decode(Blake3OfficialFile.self, from: loadData("blake3-official.json"))
+        return try! decoder.decode(BLAKE3OfficialFile.self, from: loadData("blake3-official.json"))
     }()
 }
 
 // MARK: - BLAKE2b upstream KAT
 
 @Suite("Upstream KAT — BLAKE2b")
-struct Blake2bUpstreamTests {
+struct BLAKE2bUpstreamTests {
     static let unkeyed = UpstreamLoader.blake2Vectors(algorithm: "blake2b", keyed: false)
     static let keyed   = UpstreamLoader.blake2Vectors(algorithm: "blake2b", keyed: true)
 
     @Test("BLAKE2b unkeyed", arguments: unkeyed)
-    func unkeyedVector(v: Blake2KatEntry) {
+    func unkeyedVector(v: BLAKE2KatEntry) {
         let input = UpstreamLoader.hexToBytes(v.input)
-        let actual = UpstreamLoader.toHex(Blake2b.hash(input))
+        let actual = UpstreamLoader.toHex(BLAKE2b.hash(Data(input)))
         #expect(actual == v.out)
     }
 
     @Test("BLAKE2b keyed", arguments: keyed)
-    func keyedVector(v: Blake2KatEntry) {
+    func keyedVector(v: BLAKE2KatEntry) {
         let input = UpstreamLoader.hexToBytes(v.input)
         let key = UpstreamLoader.hexToBytes(v.key)
-        let actual = UpstreamLoader.toHex(Blake2b.hash(input, key: key))
+        let actual = UpstreamLoader.toHex(BLAKE2b.hash(Data(input), key: Data(key)))
         #expect(actual == v.out)
     }
 }
@@ -113,22 +117,22 @@ struct Blake2bUpstreamTests {
 // MARK: - BLAKE2s upstream KAT
 
 @Suite("Upstream KAT — BLAKE2s")
-struct Blake2sUpstreamTests {
+struct BLAKE2sUpstreamTests {
     static let unkeyed = UpstreamLoader.blake2Vectors(algorithm: "blake2s", keyed: false)
     static let keyed   = UpstreamLoader.blake2Vectors(algorithm: "blake2s", keyed: true)
 
     @Test("BLAKE2s unkeyed", arguments: unkeyed)
-    func unkeyedVector(v: Blake2KatEntry) {
+    func unkeyedVector(v: BLAKE2KatEntry) {
         let input = UpstreamLoader.hexToBytes(v.input)
-        let actual = UpstreamLoader.toHex(Blake2s.hash(input))
+        let actual = UpstreamLoader.toHex(BLAKE2s.hash(Data(input)))
         #expect(actual == v.out)
     }
 
     @Test("BLAKE2s keyed", arguments: keyed)
-    func keyedVector(v: Blake2KatEntry) {
+    func keyedVector(v: BLAKE2KatEntry) {
         let input = UpstreamLoader.hexToBytes(v.input)
         let key = UpstreamLoader.hexToBytes(v.key)
-        let actual = UpstreamLoader.toHex(Blake2s.hash(input, key: key))
+        let actual = UpstreamLoader.toHex(BLAKE2s.hash(Data(input), key: Data(key)))
         #expect(actual == v.out)
     }
 }
@@ -136,22 +140,22 @@ struct Blake2sUpstreamTests {
 // MARK: - BLAKE2bp upstream KAT
 
 @Suite("Upstream KAT — BLAKE2bp")
-struct Blake2bpUpstreamTests {
+struct BLAKE2bpUpstreamTests {
     static let unkeyed = UpstreamLoader.blake2Vectors(algorithm: "blake2bp", keyed: false)
     static let keyed   = UpstreamLoader.blake2Vectors(algorithm: "blake2bp", keyed: true)
 
     @Test("BLAKE2bp unkeyed", arguments: unkeyed)
-    func unkeyedVector(v: Blake2KatEntry) {
+    func unkeyedVector(v: BLAKE2KatEntry) {
         let input = UpstreamLoader.hexToBytes(v.input)
-        let actual = UpstreamLoader.toHex(Blake2bp.hash(input))
+        let actual = UpstreamLoader.toHex(BLAKE2bp.hash(Data(input)))
         #expect(actual == v.out)
     }
 
     @Test("BLAKE2bp keyed", arguments: keyed)
-    func keyedVector(v: Blake2KatEntry) {
+    func keyedVector(v: BLAKE2KatEntry) {
         let input = UpstreamLoader.hexToBytes(v.input)
         let key = UpstreamLoader.hexToBytes(v.key)
-        let actual = UpstreamLoader.toHex(Blake2bp.hash(input, key: key))
+        let actual = UpstreamLoader.toHex(BLAKE2bp.hash(Data(input), key: Data(key)))
         #expect(actual == v.out)
     }
 }
@@ -159,22 +163,22 @@ struct Blake2bpUpstreamTests {
 // MARK: - BLAKE2sp upstream KAT
 
 @Suite("Upstream KAT — BLAKE2sp")
-struct Blake2spUpstreamTests {
+struct BLAKE2spUpstreamTests {
     static let unkeyed = UpstreamLoader.blake2Vectors(algorithm: "blake2sp", keyed: false)
     static let keyed   = UpstreamLoader.blake2Vectors(algorithm: "blake2sp", keyed: true)
 
     @Test("BLAKE2sp unkeyed", arguments: unkeyed)
-    func unkeyedVector(v: Blake2KatEntry) {
+    func unkeyedVector(v: BLAKE2KatEntry) {
         let input = UpstreamLoader.hexToBytes(v.input)
-        let actual = UpstreamLoader.toHex(Blake2sp.hash(input))
+        let actual = UpstreamLoader.toHex(BLAKE2sp.hash(Data(input)))
         #expect(actual == v.out)
     }
 
     @Test("BLAKE2sp keyed", arguments: keyed)
-    func keyedVector(v: Blake2KatEntry) {
+    func keyedVector(v: BLAKE2KatEntry) {
         let input = UpstreamLoader.hexToBytes(v.input)
         let key = UpstreamLoader.hexToBytes(v.key)
-        let actual = UpstreamLoader.toHex(Blake2sp.hash(input, key: key))
+        let actual = UpstreamLoader.toHex(BLAKE2sp.hash(Data(input), key: Data(key)))
         #expect(actual == v.out)
     }
 }
@@ -182,7 +186,7 @@ struct Blake2spUpstreamTests {
 // MARK: - BLAKE3 upstream official vectors
 
 @Suite("Upstream Official — BLAKE3")
-struct Blake3UpstreamTests {
+struct BLAKE3UpstreamTests {
     static let file  = UpstreamLoader.blake3File
     static let key   = Array(file.key.utf8)
     static let ctx   = file.context_string
@@ -193,57 +197,57 @@ struct Blake3UpstreamTests {
 
     // Default-length hash (first 32 bytes of extended output)
     @Test("BLAKE3 hash", arguments: cases)
-    func hashVector(v: Blake3OfficialCase) {
+    func hashVector(v: BLAKE3OfficialCase) {
         let input = UpstreamLoader.blake3Input(v.input_len)
         let expected32 = String(v.hash.prefix(64))
-        let actual = UpstreamLoader.toHex(Blake3.hash(input))
+        let actual = UpstreamLoader.toHex(BLAKE3.hash(Data(input)))
         #expect(actual == expected32)
     }
 
     // Default-length keyed hash
     @Test("BLAKE3 keyed_hash", arguments: cases)
-    func keyedHashVector(v: Blake3OfficialCase) {
+    func keyedHashVector(v: BLAKE3OfficialCase) {
         let input = UpstreamLoader.blake3Input(v.input_len)
         let expected32 = String(v.keyed_hash.prefix(64))
-        let actual = UpstreamLoader.toHex(Blake3.keyedHash(key: Self.key, data: input))
+        let actual = UpstreamLoader.toHex(BLAKE3.keyedHash(key: Data(Self.key), data: Data(input)))
         #expect(actual == expected32)
     }
 
     // Default-length derive_key
     @Test("BLAKE3 derive_key", arguments: cases)
-    func deriveKeyVector(v: Blake3OfficialCase) {
+    func deriveKeyVector(v: BLAKE3OfficialCase) {
         let input = UpstreamLoader.blake3Input(v.input_len)
         let expected32 = String(v.derive_key.prefix(64))
-        let actual = UpstreamLoader.toHex(Blake3.deriveKey(context: Self.ctx, keyMaterial: input))
+        let actual = UpstreamLoader.toHex(BLAKE3.deriveKey(context: Self.ctx, keyMaterial: Data(input)))
         #expect(actual == expected32)
     }
 
     // XOF: extended output for hash mode (prefix comparison)
     @Test("BLAKE3 XOF hash", arguments: cases)
-    func xofHashVector(v: Blake3OfficialCase) {
+    func xofHashVector(v: BLAKE3OfficialCase) {
         let input = UpstreamLoader.blake3Input(v.input_len)
-        var hasher = Blake3.Hasher()
-        hasher.update(input)
+        var hasher = BLAKE3.Hasher()
+        hasher.update(Data(input))
         let out = hasher.finalizeXof(outputLength: Self.xofBytes)
         #expect(UpstreamLoader.toHex(out) == String(v.hash.prefix(Self.xofBytes * 2)))
     }
 
     // XOF: extended output for keyed_hash mode (prefix comparison)
     @Test("BLAKE3 XOF keyed_hash", arguments: cases)
-    func xofKeyedHashVector(v: Blake3OfficialCase) {
+    func xofKeyedHashVector(v: BLAKE3OfficialCase) {
         let input = UpstreamLoader.blake3Input(v.input_len)
-        var hasher = Blake3.Hasher(key: Self.key)
-        hasher.update(input)
+        var hasher = BLAKE3.Hasher(key: Data(Self.key))
+        hasher.update(Data(input))
         let out = hasher.finalizeXof(outputLength: Self.xofBytes)
         #expect(UpstreamLoader.toHex(out) == String(v.keyed_hash.prefix(Self.xofBytes * 2)))
     }
 
     // XOF: extended output for derive_key mode (prefix comparison)
     @Test("BLAKE3 XOF derive_key", arguments: cases)
-    func xofDeriveKeyVector(v: Blake3OfficialCase) {
+    func xofDeriveKeyVector(v: BLAKE3OfficialCase) {
         let input = UpstreamLoader.blake3Input(v.input_len)
-        var hasher = Blake3.Hasher.deriveKey(context: Self.ctx)
-        hasher.update(input)
+        var hasher = BLAKE3.Hasher.deriveKey(context: Self.ctx)
+        hasher.update(Data(input))
         let out = hasher.finalizeXof(outputLength: Self.xofBytes)
         #expect(UpstreamLoader.toHex(out) == String(v.derive_key.prefix(Self.xofBytes * 2)))
     }

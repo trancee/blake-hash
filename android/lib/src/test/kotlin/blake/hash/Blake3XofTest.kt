@@ -4,7 +4,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-class Blake3XofTest {
+class BLAKE3XofTest {
 
     private fun ByteArray.toHex(): String =
         joinToString("") { "%02x".format(it) }
@@ -12,7 +12,7 @@ class Blake3XofTest {
     // ---- Hash mode XOF — empty input ----
 
     @Test fun `hash xof empty 32 bytes`() {
-        val out = Blake3.Hasher().finalize()
+        val out = BLAKE3.Hasher().finalize()
         assertEquals(
             "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
             out.toHex()
@@ -20,7 +20,7 @@ class Blake3XofTest {
     }
 
     @Test fun `hash xof empty 64 bytes`() {
-        val out = Blake3.Hasher().finalizeXof(64)
+        val out = BLAKE3.Hasher().finalizeXof(64)
         assertEquals(
             "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262" +
             "e00f03e7b69af26b7faaf09fcd333050338ddfe085b8cc869ca98b206c08243a",
@@ -29,7 +29,7 @@ class Blake3XofTest {
     }
 
     @Test fun `hash xof empty 128 bytes`() {
-        val out = Blake3.Hasher().finalizeXof(128)
+        val out = BLAKE3.Hasher().finalizeXof(128)
         assertEquals(
             "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262" +
             "e00f03e7b69af26b7faaf09fcd333050338ddfe085b8cc869ca98b206c08243a" +
@@ -42,7 +42,7 @@ class Blake3XofTest {
     // ---- Hash mode XOF — "abc" ----
 
     @Test fun `hash xof abc 32 bytes`() {
-        val out = Blake3.Hasher().update("abc".encodeToByteArray()).finalizeXof(32)
+        val out = BLAKE3.Hasher().update("abc".encodeToByteArray()).finalizeXof(32)
         assertEquals(
             "6437b3ac38465133ffb63b75273a8db548c558465d79db03fd359c6cd5bd9d85",
             out.toHex()
@@ -50,7 +50,7 @@ class Blake3XofTest {
     }
 
     @Test fun `hash xof abc 64 bytes`() {
-        val out = Blake3.Hasher().update("abc".encodeToByteArray()).finalizeXof(64)
+        val out = BLAKE3.Hasher().update("abc".encodeToByteArray()).finalizeXof(64)
         assertEquals(
             "6437b3ac38465133ffb63b75273a8db548c558465d79db03fd359c6cd5bd9d85" +
             "1fb250ae7393f5d02813b65d521a0d492d9ba09cf7ce7f4cffd900f23374bf0b",
@@ -59,7 +59,7 @@ class Blake3XofTest {
     }
 
     @Test fun `hash xof abc 128 bytes`() {
-        val out = Blake3.Hasher().update("abc".encodeToByteArray()).finalizeXof(128)
+        val out = BLAKE3.Hasher().update("abc".encodeToByteArray()).finalizeXof(128)
         assertEquals(
             "6437b3ac38465133ffb63b75273a8db548c558465d79db03fd359c6cd5bd9d85" +
             "1fb250ae7393f5d02813b65d521a0d492d9ba09cf7ce7f4cffd900f23374bf0b" +
@@ -74,7 +74,7 @@ class Blake3XofTest {
     private val key = ByteArray(32) { it.toByte() }
 
     @Test fun `keyed xof empty 32 bytes`() {
-        val out = Blake3.Hasher(key).finalizeXof(32)
+        val out = BLAKE3.Hasher(key).finalizeXof(32)
         assertEquals(
             "73492b19995d71cdb1e9d74decc09809eb732f1b00bc95c27cb15f9dd4d6478f",
             out.toHex()
@@ -82,7 +82,7 @@ class Blake3XofTest {
     }
 
     @Test fun `keyed xof empty 64 bytes`() {
-        val out = Blake3.Hasher(key).finalizeXof(64)
+        val out = BLAKE3.Hasher(key).finalizeXof(64)
         assertEquals(
             "73492b19995d71cdb1e9d74decc09809eb732f1b00bc95c27cb15f9dd4d6478f" +
             "097a9b78582396441e22930e5c7c98fd07f896796c81420f14eb9812f0482857",
@@ -91,7 +91,7 @@ class Blake3XofTest {
     }
 
     @Test fun `keyed xof empty 128 bytes`() {
-        val out = Blake3.Hasher(key).finalizeXof(128)
+        val out = BLAKE3.Hasher(key).finalizeXof(128)
         assertEquals(
             "73492b19995d71cdb1e9d74decc09809eb732f1b00bc95c27cb15f9dd4d6478f" +
             "097a9b78582396441e22930e5c7c98fd07f896796c81420f14eb9812f0482857" +
@@ -106,7 +106,7 @@ class Blake3XofTest {
     private val context = "BLAKE3 2019-12-27 16:29:52 test vectors context"
 
     @Test fun `derive key xof empty 32 bytes`() {
-        val out = Blake3.Hasher.deriveKey(context).finalizeXof(32)
+        val out = BLAKE3.Hasher.deriveKey(context).finalizeXof(32)
         assertEquals(
             "2cc39783c223154fea8dfb7c1b1660f2ac2dcbd1c1de8277b0b0dd39b7e50d7d",
             out.toHex()
@@ -114,7 +114,7 @@ class Blake3XofTest {
     }
 
     @Test fun `derive key xof empty 64 bytes`() {
-        val out = Blake3.Hasher.deriveKey(context).finalizeXof(64)
+        val out = BLAKE3.Hasher.deriveKey(context).finalizeXof(64)
         assertEquals(
             "2cc39783c223154fea8dfb7c1b1660f2ac2dcbd1c1de8277b0b0dd39b7e50d7d" +
             "905630c8be290dfcf3e6842f13bddd573c098c3f17361f1f206b8cad9d088aa4",
@@ -123,7 +123,7 @@ class Blake3XofTest {
     }
 
     @Test fun `derive key xof empty 128 bytes`() {
-        val out = Blake3.Hasher.deriveKey(context).finalizeXof(128)
+        val out = BLAKE3.Hasher.deriveKey(context).finalizeXof(128)
         assertEquals(
             "2cc39783c223154fea8dfb7c1b1660f2ac2dcbd1c1de8277b0b0dd39b7e50d7d" +
             "905630c8be290dfcf3e6842f13bddd573c098c3f17361f1f206b8cad9d088aa4" +
@@ -136,28 +136,28 @@ class Blake3XofTest {
     // ---- Prefix property: 32 ⊂ 64 ⊂ 128 ----
 
     @Test fun `hash xof prefix property`() {
-        val h = Blake3.Hasher().update("abc".encodeToByteArray())
-        val out32 = Blake3.Hasher().update("abc".encodeToByteArray()).finalizeXof(32)
-        val out64 = Blake3.Hasher().update("abc".encodeToByteArray()).finalizeXof(64)
-        val out128 = Blake3.Hasher().update("abc".encodeToByteArray()).finalizeXof(128)
+        val h = BLAKE3.Hasher().update("abc".encodeToByteArray())
+        val out32 = BLAKE3.Hasher().update("abc".encodeToByteArray()).finalizeXof(32)
+        val out64 = BLAKE3.Hasher().update("abc".encodeToByteArray()).finalizeXof(64)
+        val out128 = BLAKE3.Hasher().update("abc".encodeToByteArray()).finalizeXof(128)
 
         assertTrue(out64.toHex().startsWith(out32.toHex()), "64-byte output should start with 32-byte output")
         assertTrue(out128.toHex().startsWith(out64.toHex()), "128-byte output should start with 64-byte output")
     }
 
     @Test fun `keyed xof prefix property`() {
-        val out32 = Blake3.Hasher(key).finalizeXof(32)
-        val out64 = Blake3.Hasher(key).finalizeXof(64)
-        val out128 = Blake3.Hasher(key).finalizeXof(128)
+        val out32 = BLAKE3.Hasher(key).finalizeXof(32)
+        val out64 = BLAKE3.Hasher(key).finalizeXof(64)
+        val out128 = BLAKE3.Hasher(key).finalizeXof(128)
 
         assertTrue(out64.toHex().startsWith(out32.toHex()))
         assertTrue(out128.toHex().startsWith(out64.toHex()))
     }
 
     @Test fun `derive key xof prefix property`() {
-        val out32 = Blake3.Hasher.deriveKey(context).finalizeXof(32)
-        val out64 = Blake3.Hasher.deriveKey(context).finalizeXof(64)
-        val out128 = Blake3.Hasher.deriveKey(context).finalizeXof(128)
+        val out32 = BLAKE3.Hasher.deriveKey(context).finalizeXof(32)
+        val out64 = BLAKE3.Hasher.deriveKey(context).finalizeXof(64)
+        val out128 = BLAKE3.Hasher.deriveKey(context).finalizeXof(128)
 
         assertTrue(out64.toHex().startsWith(out32.toHex()))
         assertTrue(out128.toHex().startsWith(out64.toHex()))

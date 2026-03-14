@@ -25,41 +25,41 @@ blake-hash/
 │       ├── build.gradle.kts          # Library build (JDK 21, JUnit 5)
 │       └── src/
 │           ├── main/kotlin/io/blake/hash/
-│           │   ├── Blake2b.kt        # BLAKE2b public API
-│           │   ├── Blake2s.kt        # BLAKE2s public API
-│           │   ├── Blake2bp.kt       # BLAKE2bp public API
-│           │   ├── Blake2sp.kt       # BLAKE2sp public API
-│           │   ├── Blake3.kt         # BLAKE3 public API
+│           │   ├── BLAKE2b.kt        # BLAKE2b public API
+│           │   ├── BLAKE2s.kt        # BLAKE2s public API
+│           │   ├── BLAKE2bp.kt       # BLAKE2bp public API
+│           │   ├── BLAKE2sp.kt       # BLAKE2sp public API
+│           │   ├── BLAKE3.kt         # BLAKE3 public API
 │           │   └── internal/
-│           │       ├── Blake2Core.kt  # BLAKE2 engine (shared by b/s/bp/sp)
-│           │       └── Blake3Core.kt  # BLAKE3 compression and tree logic
+│           │       ├── BLAKE2Core.kt  # BLAKE2 engine (shared by b/s/bp/sp)
+│           │       └── BLAKE3Core.kt  # BLAKE3 compression and tree logic
 │           └── test/kotlin/io/blake/hash/
-│               ├── Blake2Test.kt      # Cross-algorithm tests
-│               ├── Blake2bTest.kt     # BLAKE2b KAT vectors
-│               ├── Blake2sTest.kt     # BLAKE2s KAT vectors
-│               ├── Blake2bpTest.kt    # BLAKE2bp KAT vectors
-│               ├── Blake2spTest.kt    # BLAKE2sp KAT vectors
-│               └── Blake3Test.kt      # BLAKE3 all-mode vectors
+│               ├── BLAKE2Test.kt      # Cross-algorithm tests
+│               ├── BLAKE2bTest.kt     # BLAKE2b KAT vectors
+│               ├── BLAKE2sTest.kt     # BLAKE2s KAT vectors
+│               ├── BLAKE2bpTest.kt    # BLAKE2bp KAT vectors
+│               ├── BLAKE2spTest.kt    # BLAKE2sp KAT vectors
+│               └── BLAKE3Test.kt      # BLAKE3 all-mode vectors
 ├── ios/
 │   ├── Package.swift                  # SPM config (Swift 6.1, platforms)
 │   ├── Sources/BlakeHash/
-│   │   ├── Blake2b.swift
-│   │   ├── Blake2s.swift
-│   │   ├── Blake2bp.swift
-│   │   ├── Blake2sp.swift
-│   │   ├── Blake3.swift
+│   │   ├── BLAKE2b.swift
+│   │   ├── BLAKE2s.swift
+│   │   ├── BLAKE2bp.swift
+│   │   ├── BLAKE2sp.swift
+│   │   ├── BLAKE3.swift
 │   │   └── Internal/
-│   │       ├── Blake2Core.swift
-│   │       └── Blake3Core.swift
+│   │       ├── BLAKE2Core.swift
+│   │       └── BLAKE3Core.swift
 │   └── Tests/BlakeHashTests/
-│       ├── Blake2bTests.swift
-│       ├── Blake2sTests.swift
-│       ├── Blake2bpTests.swift
-│       ├── Blake2spTests.swift
-│       ├── Blake3Tests.swift
-│       ├── Blake3KeyedTests.swift
-│       ├── Blake3XofTests.swift
-│       ├── Blake3DeriveKeyTests.swift
+│       ├── BLAKE2bTests.swift
+│       ├── BLAKE2sTests.swift
+│       ├── BLAKE2bpTests.swift
+│       ├── BLAKE2spTests.swift
+│       ├── BLAKE3Tests.swift
+│       ├── BLAKE3KeyedTests.swift
+│       ├── BLAKE3XofTests.swift
+│       ├── BLAKE3DeriveKeyTests.swift
 │       └── CrossAlgorithmTests.swift
 └── docs/
     ├── API.md
@@ -118,17 +118,23 @@ From the repository root:
 (cd android && ./gradlew test) && (cd ios && swift test)
 ```
 
+You can also run `swift test` from the repository root (the root-level `Package.swift` works):
+
+```bash
+swift test
+```
+
 ## Code Style
 
 ### Visibility
 
-- **Public API surface:** `public` visibility on the algorithm types (`Blake2b`, `Blake2s`, etc.), their companion/static functions, and the `Hasher` types.
-- **Internal engine code:** `internal` visibility (Kotlin) or no access modifier / `internal` (Swift) for `Blake2Core`, `Blake3Core`, and engine classes.
+- **Public API surface:** `public` visibility on the algorithm types (`BLAKE2b`, `BLAKE2s`, etc.), their companion/static functions, and the `Hasher` types.
+- **Internal engine code:** `internal` visibility (Kotlin) or no access modifier / `internal` (Swift) for `BLAKE2Core`, `BLAKE3Core`, and engine classes.
 - **Private implementation:** `private` for constants, helper functions, and internal state.
 
 ### Naming
 
-- Algorithm types are named `Blake2b`, `Blake2s`, `Blake2bp`, `Blake2sp`, `Blake3` (PascalCase, no hyphens).
+- Algorithm types are named `BLAKE2b`, `BLAKE2s`, `BLAKE2bp`, `BLAKE2sp`, `BLAKE3` (matching algorithm names).
 - One-shot functions: `hash()`, `keyedHash()`, `deriveKey()`.
 - Streaming type: `Hasher` (nested inside the algorithm type).
 - Streaming methods: `update()`, `finalize()`, `finalizeXof()`.
@@ -143,7 +149,7 @@ From the repository root:
 ### Swift
 
 - Minimum Swift 6.1 (swift-tools-version: 6.1).
-- Use `[UInt8]` for all byte data.
+- Use `Data` for all byte data.
 - All public types conform to `Sendable`.
 - `update()` is `mutating` on value-type `Hasher`.
 

@@ -38,7 +38,7 @@ class UpstreamVectorTest {
             val input = TestVectorLoader.hexToBytes(v.getString("in"))
             val expected = v.getString("out")
             DynamicTest.dynamicTest("[$i] blake2b unkeyed len=${input.size}") {
-                assertHex(expected, Blake2b.hash(input))
+                assertHex(expected, BLAKE2b.hash(input))
             }
         }
 
@@ -49,7 +49,7 @@ class UpstreamVectorTest {
             val key = TestVectorLoader.hexToBytes(v.getString("key"))
             val expected = v.getString("out")
             DynamicTest.dynamicTest("[$i] blake2b keyed len=${input.size}") {
-                assertHex(expected, Blake2b.hash(input, key = key))
+                assertHex(expected, BLAKE2b.hash(input, key = key))
             }
         }
 
@@ -59,7 +59,7 @@ class UpstreamVectorTest {
             val input = TestVectorLoader.hexToBytes(v.getString("in"))
             val expected = v.getString("out")
             DynamicTest.dynamicTest("[$i] blake2s unkeyed len=${input.size}") {
-                assertHex(expected, Blake2s.hash(input))
+                assertHex(expected, BLAKE2s.hash(input))
             }
         }
 
@@ -70,7 +70,7 @@ class UpstreamVectorTest {
             val key = TestVectorLoader.hexToBytes(v.getString("key"))
             val expected = v.getString("out")
             DynamicTest.dynamicTest("[$i] blake2s keyed len=${input.size}") {
-                assertHex(expected, Blake2s.hash(input, key = key))
+                assertHex(expected, BLAKE2s.hash(input, key = key))
             }
         }
 
@@ -80,7 +80,7 @@ class UpstreamVectorTest {
             val input = TestVectorLoader.hexToBytes(v.getString("in"))
             val expected = v.getString("out")
             DynamicTest.dynamicTest("[$i] blake2bp unkeyed len=${input.size}") {
-                assertHex(expected, Blake2bp.hash(input))
+                assertHex(expected, BLAKE2bp.hash(input))
             }
         }
 
@@ -91,7 +91,7 @@ class UpstreamVectorTest {
             val key = TestVectorLoader.hexToBytes(v.getString("key"))
             val expected = v.getString("out")
             DynamicTest.dynamicTest("[$i] blake2bp keyed len=${input.size}") {
-                assertHex(expected, Blake2bp.hash(input, key = key))
+                assertHex(expected, BLAKE2bp.hash(input, key = key))
             }
         }
 
@@ -101,7 +101,7 @@ class UpstreamVectorTest {
             val input = TestVectorLoader.hexToBytes(v.getString("in"))
             val expected = v.getString("out")
             DynamicTest.dynamicTest("[$i] blake2sp unkeyed len=${input.size}") {
-                assertHex(expected, Blake2sp.hash(input))
+                assertHex(expected, BLAKE2sp.hash(input))
             }
         }
 
@@ -112,7 +112,7 @@ class UpstreamVectorTest {
             val key = TestVectorLoader.hexToBytes(v.getString("key"))
             val expected = v.getString("out")
             DynamicTest.dynamicTest("[$i] blake2sp keyed len=${input.size}") {
-                assertHex(expected, Blake2sp.hash(input, key = key))
+                assertHex(expected, BLAKE2sp.hash(input, key = key))
             }
         }
 
@@ -132,7 +132,7 @@ class UpstreamVectorTest {
             val extendedHex = v.getString("hash")
             val expected32 = extendedHex.take(64)
             DynamicTest.dynamicTest("[$i] blake3 hash len=$len") {
-                assertHex(expected32, Blake3.hash(TestVectorLoader.blake3Input(len)))
+                assertHex(expected32, BLAKE3.hash(TestVectorLoader.blake3Input(len)))
             }
         }
 
@@ -143,7 +143,7 @@ class UpstreamVectorTest {
             val extendedHex = v.getString("keyed_hash")
             val expected32 = extendedHex.take(64)
             DynamicTest.dynamicTest("[$i] blake3 keyed_hash len=$len") {
-                assertHex(expected32, Blake3.keyedHash(blake3Key, TestVectorLoader.blake3Input(len)))
+                assertHex(expected32, BLAKE3.keyedHash(blake3Key, TestVectorLoader.blake3Input(len)))
             }
         }
 
@@ -154,7 +154,7 @@ class UpstreamVectorTest {
             val extendedHex = v.getString("derive_key")
             val expected32 = extendedHex.take(64)
             DynamicTest.dynamicTest("[$i] blake3 derive_key len=$len") {
-                assertHex(expected32, Blake3.deriveKey(blake3Context, TestVectorLoader.blake3Input(len)))
+                assertHex(expected32, BLAKE3.deriveKey(blake3Context, TestVectorLoader.blake3Input(len)))
             }
         }
 
@@ -164,7 +164,7 @@ class UpstreamVectorTest {
             val len = v.getInt("input_len")
             val extendedHex = v.getString("hash")
             DynamicTest.dynamicTest("[$i] blake3 XOF hash len=$len out=$XOF_BYTES") {
-                val hasher = Blake3.Hasher().update(TestVectorLoader.blake3Input(len))
+                val hasher = BLAKE3.Hasher().update(TestVectorLoader.blake3Input(len))
                 val actual = hasher.finalizeXof(XOF_BYTES)
                 assertHex(extendedHex.take(XOF_BYTES * 2), actual)
             }
@@ -176,7 +176,7 @@ class UpstreamVectorTest {
             val len = v.getInt("input_len")
             val extendedHex = v.getString("keyed_hash")
             DynamicTest.dynamicTest("[$i] blake3 XOF keyed_hash len=$len out=$XOF_BYTES") {
-                val hasher = Blake3.Hasher(blake3Key).update(TestVectorLoader.blake3Input(len))
+                val hasher = BLAKE3.Hasher(blake3Key).update(TestVectorLoader.blake3Input(len))
                 val actual = hasher.finalizeXof(XOF_BYTES)
                 assertHex(extendedHex.take(XOF_BYTES * 2), actual)
             }
@@ -188,7 +188,7 @@ class UpstreamVectorTest {
             val len = v.getInt("input_len")
             val extendedHex = v.getString("derive_key")
             DynamicTest.dynamicTest("[$i] blake3 XOF derive_key len=$len out=$XOF_BYTES") {
-                val hasher = Blake3.Hasher.deriveKey(blake3Context).update(TestVectorLoader.blake3Input(len))
+                val hasher = BLAKE3.Hasher.deriveKey(blake3Context).update(TestVectorLoader.blake3Input(len))
                 val actual = hasher.finalizeXof(XOF_BYTES)
                 assertHex(extendedHex.take(XOF_BYTES * 2), actual)
             }

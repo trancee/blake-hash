@@ -8,6 +8,7 @@ android/gradlew
 android/gradlew.bat
 ios/.build/
 ios/.swiftpm/
+.build/
 
 # IDE
 .idea/

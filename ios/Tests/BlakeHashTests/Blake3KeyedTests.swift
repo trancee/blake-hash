@@ -1,8 +1,9 @@
+import Foundation
 import Testing
 @testable import BlakeHash
 
 @Suite("BLAKE3 Keyed Hash")
-struct Blake3KeyedTests {
+struct BLAKE3KeyedTests {
 
     static let key: [UInt8] = [UInt8](0..<32)
 
@@ -18,19 +19,19 @@ struct Blake3KeyedTests {
     @Test("keyed hash vector", arguments: vectors)
     func keyedHashVector(vector: (len: Int, hash: String)) {
         let input = blake3Input(vector.len)
-        let hash = Blake3.keyedHash(key: Blake3KeyedTests.key, data: input)
+        let hash = BLAKE3.keyedHash(key: Data(BLAKE3KeyedTests.key), data: input)
         #expect(toHex(hash) == vector.hash, "Failed for input length \(vector.len)")
     }
 
     @Test("keyed hash streaming matches one-shot")
     func streamingParity() {
         let input = blake3Input(1025)
-        let oneShot = Blake3.keyedHash(key: Blake3KeyedTests.key, data: input)
+        let oneShot = BLAKE3.keyedHash(key: Data(BLAKE3KeyedTests.key), data: input)
 
-        var hasher = Blake3.Hasher(key: Blake3KeyedTests.key)
+        var hasher = BLAKE3.Hasher(key: Data(BLAKE3KeyedTests.key))
         for chunk in stride(from: 0, to: input.count, by: 137) {
             let end = min(chunk + 137, input.count)
-            hasher.update(Array(input[chunk..<end]))
+            hasher.update(input[chunk..<end])
         }
         let streamed = hasher.finalize()
 

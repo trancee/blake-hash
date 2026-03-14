@@ -1,36 +1,37 @@
+import Foundation
 import Testing
 @testable import BlakeHash
 
 // MARK: - BLAKE2bp Tests
 
 @Suite("BLAKE2bp")
-struct Blake2bpTests {
+struct BLAKE2bpTests {
     let abc: [UInt8] = Array("abc".utf8)
 
     @Test func blake2bpAbc() {
-        let result = Blake2bp.hash(abc)
+        let result = BLAKE2bp.hash(Data(abc))
         #expect(toHex(result) == "b91a6b66ae87526c400b0a8b53774dc65284ad8f6575f8148ff93dff943a6ecd8362130f22d6dae633aa0f91df4ac89aaff31d0f1b923c898e82025dedbdad6e")
     }
 
     @Test func blake2bpKeyedAbc() {
         let key: [UInt8] = (0..<64).map { UInt8($0) }
-        let result = Blake2bp.hash(abc, key: key)
+        let result = BLAKE2bp.hash(Data(abc), key: Data(key))
         #expect(toHex(result) == "8943f40e65e41fdbbe79b701b26279125bbe120379dd77d74fdb5faf662ed6a3974aa1dce99a3349a492159fa0ded8245a5167c11886170a3af12888448fa8b2")
     }
 
-    @Test func blake2bpDiffersFromBlake2b() {
-        let bpResult = Blake2bp.hash(abc)
-        let bResult = Blake2b.hash(abc, digestLength: 64)
+    @Test func blake2bpDiffersFromBLAKE2b() {
+        let bpResult = BLAKE2bp.hash(Data(abc))
+        let bResult = BLAKE2b.hash(Data(abc), digestLength: 64)
         #expect(toHex(bpResult) != toHex(bResult))
     }
 
     @Test func blake2bpStreamingMatchesOneShot() {
         let input: [UInt8] = Array("abc".utf8)
-        let oneShot = Blake2bp.hash(input)
+        let oneShot = BLAKE2bp.hash(Data(input))
 
-        var hasher = Blake2bp.Hasher()
+        var hasher = BLAKE2bp.Hasher()
         for byte in input {
-            hasher.update([byte])
+            hasher.update(Data([byte]))
         }
         let streamed = hasher.finalize()
 
