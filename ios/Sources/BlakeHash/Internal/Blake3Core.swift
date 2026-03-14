@@ -113,18 +113,17 @@ internal func blake3Compress(
 
     for round in 0..<7 {
         let perm = Blake3Constants.MSG_PERMUTATION[round]
-        let pm = (0..<16).map { m[perm[$0]] }
 
-        // Column step
-        g(&v, 0, 4, 8, 12, pm[0], pm[1])
-        g(&v, 1, 5, 9, 13, pm[2], pm[3])
-        g(&v, 2, 6, 10, 14, pm[4], pm[5])
-        g(&v, 3, 7, 11, 15, pm[6], pm[7])
+        // Column step — index directly through permutation, no intermediate array
+        g(&v, 0, 4, 8, 12, m[perm[0]], m[perm[1]])
+        g(&v, 1, 5, 9, 13, m[perm[2]], m[perm[3]])
+        g(&v, 2, 6, 10, 14, m[perm[4]], m[perm[5]])
+        g(&v, 3, 7, 11, 15, m[perm[6]], m[perm[7]])
         // Diagonal step
-        g(&v, 0, 5, 10, 15, pm[8], pm[9])
-        g(&v, 1, 6, 11, 12, pm[10], pm[11])
-        g(&v, 2, 7, 8, 13, pm[12], pm[13])
-        g(&v, 3, 4, 9, 14, pm[14], pm[15])
+        g(&v, 0, 5, 10, 15, m[perm[8]], m[perm[9]])
+        g(&v, 1, 6, 11, 12, m[perm[10]], m[perm[11]])
+        g(&v, 2, 7, 8, 13, m[perm[12]], m[perm[13]])
+        g(&v, 3, 4, 9, 14, m[perm[14]], m[perm[15]])
     }
 
     // Output: first 8 = v[0..7] ^ v[8..15], second 8 = v[8..15] ^ cv[0..7]
@@ -156,11 +155,11 @@ internal struct Blake3Output {
     }
 
     func rootOutputBytes(outputLength: Int) -> [UInt8] {
-        var result = [UInt8]()
-        result.reserveCapacity(outputLength)
+        var result = [UInt8](repeating: 0, count: outputLength)
         var outputBlockCounter: UInt64 = 0
+        var written = 0
 
-        while result.count < outputLength {
+        while written < outputLength {
             let words = blake3Compress(
                 chainingValue: inputChainingValue,
                 blockWords: blockWords,
@@ -168,9 +167,12 @@ internal struct Blake3Output {
                 blockLen: blockLen,
                 flags: flags | Blake3Constants.ROOT
             )
-            let blockBytes = bytesFromWords(words)
-            let needed = min(blockBytes.count, outputLength - result.count)
-            result.append(contentsOf: blockBytes.prefix(needed))
+            let needed = min(64, outputLength - written)
+            let wordCount = (needed + 3) / 4
+            for i in 0..<wordCount {
+                storeLE32(words[i], into: &result, at: written + i * 4)
+            }
+            written += needed
             outputBlockCounter += 1
         }
         return result
@@ -204,9 +206,11 @@ internal struct Blake3ChunkState {
         blocksCompressed == 0 ? Blake3Constants.CHUNK_START : 0
     }
 
-    mutating func update(_ input: [UInt8]) {
-        var offset = 0
-        while offset < input.count {
+    mutating func update(_ input: [UInt8], offset inputOffset: Int = 0, length inputLength: Int? = nil) {
+        let length = inputLength ?? input.count
+        var offset = inputOffset
+        let end = inputOffset + length
+        while offset < end {
             // If the block buffer is full, compress it
             if blockLen == Blake3Constants.BLOCK_LEN {
                 let blockWords = wordsFromBytes(block)
@@ -218,13 +222,17 @@ internal struct Blake3ChunkState {
                     flags: flags | startFlag
                 ).prefix(8))
                 blocksCompressed += 1
-                block = [UInt8](repeating: 0, count: Blake3Constants.BLOCK_LEN)
+                // Zero the block instead of allocating a new one
+                for i in 0..<Blake3Constants.BLOCK_LEN { block[i] = 0 }
                 blockLen = 0
             }
 
             let want = Blake3Constants.BLOCK_LEN - blockLen
-            let take = min(want, input.count - offset)
-            block.replaceSubrange(blockLen..<(blockLen + take), with: input[offset..<(offset + take)])
+            let take = min(want, end - offset)
+            // Copy bytes directly instead of using replaceSubrange
+            for i in 0..<take {
+                block[blockLen + i] = input[offset + i]
+            }
             blockLen += take
             offset += take
         }
@@ -349,7 +357,8 @@ internal struct Blake3Engine {
 
             let want = Blake3Constants.CHUNK_LEN - chunkState.totalLen
             let take = min(want, input.count - offset)
-            chunkState.update(Array(input[offset..<(offset + take)]))
+            // Pass the full array with offset/length to avoid slice-to-array copy
+            chunkState.update(input, offset: offset, length: take)
             offset += take
         }
     }

@@ -44,7 +44,19 @@ internal object Blake3Core {
         blockLen: Int,
         flags: Int
     ): IntArray {
-        val v = IntArray(16)
+        return compress(chainingValue, blockWords, counter, blockLen, flags, IntArray(16))
+    }
+
+    /** BLAKE3 compression function writing into a pre-allocated output array. */
+    fun compress(
+        chainingValue: IntArray,
+        blockWords: IntArray,
+        counter: Long,
+        blockLen: Int,
+        flags: Int,
+        out: IntArray
+    ): IntArray {
+        val v = out // reuse the output array as working vector, then overwrite
         chainingValue.copyInto(v, 0, 0, 8)
         v[8] = IV[0]; v[9] = IV[1]; v[10] = IV[2]; v[11] = IV[3]
         v[12] = counter.toInt()
@@ -66,11 +78,18 @@ internal object Blake3Core {
             g(v, 3, 4, 9, 14, blockWords[s[14]], blockWords[s[15]])
         }
 
-        val out = IntArray(16)
-        for (i in 0..7) {
-            out[i] = v[i] xor v[i + 8]
-            out[i + 8] = v[i + 8] xor chainingValue[i]
-        }
+        // Compute output in-place: first 8 = v[0..7] ^ v[8..15], second 8 = v[8..15] ^ cv[0..7]
+        // Must save v[8..15] before overwriting
+        val v8 = v[8]; val v9 = v[9]; val v10 = v[10]; val v11 = v[11]
+        val v12 = v[12]; val v13 = v[13]; val v14 = v[14]; val v15 = v[15]
+        out[0] = v[0] xor v8;  out[8]  = v8 xor chainingValue[0]
+        out[1] = v[1] xor v9;  out[9]  = v9 xor chainingValue[1]
+        out[2] = v[2] xor v10; out[10] = v10 xor chainingValue[2]
+        out[3] = v[3] xor v11; out[11] = v11 xor chainingValue[3]
+        out[4] = v[4] xor v12; out[12] = v12 xor chainingValue[4]
+        out[5] = v[5] xor v13; out[13] = v13 xor chainingValue[5]
+        out[6] = v[6] xor v14; out[14] = v14 xor chainingValue[6]
+        out[7] = v[7] xor v15; out[15] = v15 xor chainingValue[7]
         return out
     }
 
@@ -103,18 +122,59 @@ internal object Blake3Core {
 
     /** Parse a 64-byte (or shorter, zero-padded) block into 16 little-endian words. */
     fun bytesToWords(block: ByteArray, offset: Int, len: Int): IntArray {
-        val padded = ByteArray(BLOCK_LEN)
-        block.copyInto(padded, 0, offset, offset + len)
-        return IntArray(16) { leToInt(padded, it * 4) }
+        val words = IntArray(16)
+        val fullWords = len / 4
+        for (i in 0 until fullWords) {
+            words[i] = leToInt(block, offset + i * 4)
+        }
+        // Handle trailing partial word (if len is not a multiple of 4)
+        val remainder = len % 4
+        if (remainder > 0) {
+            var w = 0
+            val base = offset + fullWords * 4
+            for (i in 0 until remainder) {
+                w = w or ((block[base + i].toInt() and 0xFF) shl (i * 8))
+            }
+            words[fullWords] = w
+        }
+        // Remaining words are already 0
+        return words
     }
 
-    /** Convert 8 words to 32 bytes (little-endian). */
+    /** Parse a full 64-byte block into a pre-allocated 16-word array. */
+    fun bytesToWords(block: ByteArray, offset: Int, len: Int, dest: IntArray) {
+        val fullWords = len / 4
+        for (i in 0 until fullWords) {
+            dest[i] = leToInt(block, offset + i * 4)
+        }
+        val remainder = len % 4
+        if (remainder > 0) {
+            var w = 0
+            val base = offset + fullWords * 4
+            for (i in 0 until remainder) {
+                w = w or ((block[base + i].toInt() and 0xFF) shl (i * 8))
+            }
+            dest[fullWords] = w
+            for (i in fullWords + 1..15) dest[i] = 0
+        } else {
+            for (i in fullWords..15) dest[i] = 0
+        }
+    }
+
+    /** Convert words to bytes (little-endian). */
     fun wordsToBytes(words: IntArray, count: Int = words.size): ByteArray {
         val out = ByteArray(count * 4)
         for (i in 0 until count) {
             intToLe(words[i], out, i * 4)
         }
         return out
+    }
+
+    /** Write words directly to an existing byte buffer at the given offset. */
+    fun wordsToBytesInto(words: IntArray, dest: ByteArray, destOffset: Int, wordCount: Int) {
+        for (i in 0 until wordCount) {
+            intToLe(words[i], dest, destOffset + i * 4)
+        }
     }
 
     // ---- Output node: captures inputs needed for root finalization / XOF ----
@@ -126,31 +186,41 @@ internal object Blake3Core {
         val blockLen: Int,
         val flags: Int
     ) {
+        // Pre-allocated scratch array for compress output
+        private val compressOut = IntArray(16)
+
         /** First 8 words of compression output (used as chaining value). */
         fun chainingValueWords(): IntArray {
-            return compress(chainingValue, blockWords, counter, blockLen, flags)
-                .copyOfRange(0, 8)
+            compress(chainingValue, blockWords, counter, blockLen, flags, compressOut)
+            return compressOut.copyOfRange(0, 8)
+        }
+
+        /** First 8 words of root compression into a pre-allocated destination. */
+        fun chainingValueWordsInto(dest: IntArray) {
+            compress(chainingValue, blockWords, counter, blockLen, flags, compressOut)
+            compressOut.copyInto(dest, 0, 0, 8)
         }
 
         /** First 8 words of root compression (includes ROOT flag). */
         fun rootChainingValue(): IntArray {
-            return compress(chainingValue, blockWords, counter, blockLen, flags or ROOT)
-                .copyOfRange(0, 8)
+            compress(chainingValue, blockWords, counter, blockLen, flags or ROOT, compressOut)
+            return compressOut.copyOfRange(0, 8)
         }
 
-        /** Produce arbitrary-length output (XOF). */
+        /** Produce arbitrary-length output (XOF) — writes directly to result. */
         fun rootOutputBytes(outputLen: Int): ByteArray {
             val result = ByteArray(outputLen)
             var outputIndex = 0
             var blockCounter = 0L
             while (outputIndex < outputLen) {
-                val words = compress(
+                compress(
                     chainingValue, blockWords, blockCounter,
-                    blockLen, flags or ROOT
+                    blockLen, flags or ROOT, compressOut
                 )
-                val bytes = wordsToBytes(words)
-                val take = minOf(bytes.size, outputLen - outputIndex)
-                bytes.copyInto(result, outputIndex, 0, take)
+                val available = 64 // 16 words * 4 bytes
+                val take = minOf(available, outputLen - outputIndex)
+                val wordCount = (take + 3) / 4
+                wordsToBytesInto(compressOut, result, outputIndex, wordCount)
                 outputIndex += take
                 blockCounter++
             }
@@ -166,11 +236,15 @@ internal object Blake3Core {
         private val baseFlags: Int
     ) {
         private var chainingValue = key.copyOf()
-        private var block = ByteArray(BLOCK_LEN)
+        private val block = ByteArray(BLOCK_LEN)
         private var blockLen = 0
         private var blocksCompressed = 0
         var bytesConsumed = 0
             private set
+
+        // Pre-allocated arrays for hot-path compress calls
+        private val blockWords = IntArray(16)
+        private val compressOut = IntArray(16)
 
         val isComplete: Boolean get() = bytesConsumed == CHUNK_LEN
 
@@ -179,16 +253,16 @@ internal object Blake3Core {
             var remaining = inputLen
             while (remaining > 0) {
                 if (blockLen == BLOCK_LEN) {
-                    // Block is full — compress it
-                    val blockWords = bytesToWords(block, 0, BLOCK_LEN)
+                    bytesToWords(block, 0, BLOCK_LEN, blockWords)
                     var flags = baseFlags
                     if (blocksCompressed == 0) flags = flags or CHUNK_START
-                    chainingValue = compress(
+                    compress(
                         chainingValue, blockWords, chunkCounter,
-                        BLOCK_LEN, flags
-                    ).copyOfRange(0, 8)
+                        BLOCK_LEN, flags, compressOut
+                    )
+                    compressOut.copyInto(chainingValue, 0, 0, 8)
                     blocksCompressed++
-                    block = ByteArray(BLOCK_LEN)
+                    block.fill(0)
                     blockLen = 0
                 }
                 val take = minOf(BLOCK_LEN - blockLen, remaining)
@@ -202,10 +276,10 @@ internal object Blake3Core {
 
         /** Return the Output for this chunk's final block. */
         fun output(): Output {
-            val blockWords = bytesToWords(block, 0, blockLen)
+            val finalWords = bytesToWords(block, 0, blockLen)
             var flags = baseFlags or CHUNK_END
             if (blocksCompressed == 0) flags = flags or CHUNK_START
-            return Output(chainingValue, blockWords, chunkCounter, blockLen, flags)
+            return Output(chainingValue, finalWords, chunkCounter, blockLen, flags)
         }
     }
 

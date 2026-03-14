@@ -103,13 +103,17 @@ internal func blake2G<W: FixedWidthInteger & UnsignedInteger>(
     r1: Int, r2: Int, r3: Int, r4: Int
 ) {
     v[a] = v[a] &+ v[b] &+ x
-    v[d] = (v[d] ^ v[a]) &>> r1 | (v[d] ^ v[a]) &<< (W.bitWidth - r1)
+    var tmp = v[d] ^ v[a]
+    v[d] = tmp &>> r1 | tmp &<< (W.bitWidth - r1)
     v[c] = v[c] &+ v[d]
-    v[b] = (v[b] ^ v[c]) &>> r2 | (v[b] ^ v[c]) &<< (W.bitWidth - r2)
+    tmp = v[b] ^ v[c]
+    v[b] = tmp &>> r2 | tmp &<< (W.bitWidth - r2)
     v[a] = v[a] &+ v[b] &+ y
-    v[d] = (v[d] ^ v[a]) &>> r3 | (v[d] ^ v[a]) &<< (W.bitWidth - r3)
+    tmp = v[d] ^ v[a]
+    v[d] = tmp &>> r3 | tmp &<< (W.bitWidth - r3)
     v[c] = v[c] &+ v[d]
-    v[b] = (v[b] ^ v[c]) &>> r4 | (v[b] ^ v[c]) &<< (W.bitWidth - r4)
+    tmp = v[b] ^ v[c]
+    v[b] = tmp &>> r4 | tmp &<< (W.bitWidth - r4)
 }
 
 // MARK: - Compression Function
