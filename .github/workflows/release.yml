@@ -62,14 +62,31 @@ jobs:
         id: version
         run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
 
-      - name: Publish to Maven Central (Sonatype OSSRH)
+      - name: Stage artifacts for Maven Central
         working-directory: android
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+        run: gradle :lib:publishMavenPublicationToStagingRepository -PreleaseVersion=${{ steps.version.outputs.VERSION }}
+
+      - name: Publish to Maven Central (Central Portal)
+        working-directory: android/lib/build/staging
         env:
           OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
           OSSRH_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
-          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
-          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
-        run: gradle :lib:publishMavenPublicationToOSSRHRepository -PreleaseVersion=${{ steps.version.outputs.VERSION }}
+        run: |
+          zip -r /tmp/bundle.zip .
+          STATUS=$(curl -s -o /tmp/response.json -w "%{http_code}" \
+            -u "${OSSRH_USERNAME}:${OSSRH_PASSWORD}" \
+            -F "bundle=@/tmp/bundle.zip" \
+            "https://central.sonatype.com/api/v1/publisher/upload?publishingType=AUTOMATIC")
+          echo "Central Portal response (HTTP ${STATUS}):"
+          cat /tmp/response.json
+          echo
+          if [ "${STATUS}" -ne 201 ]; then
+            echo "::error::Central Portal upload failed with HTTP ${STATUS}"
+            exit 1
+          fi
 
       - name: Publish to GitHub Packages
         working-directory: android

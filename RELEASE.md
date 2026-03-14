@@ -9,7 +9,7 @@ How to publish a new version of blake-hash to Maven Central, GitHub Packages, an
 Releases are automated via GitHub Actions. Creating a GitHub release with a `v`-prefixed tag triggers the [release workflow](.github/workflows/release.yml), which:
 
 1. Runs the full test suite on both Android and iOS
-2. Publishes the Kotlin library to **Maven Central** (Sonatype OSSRH)
+2. Stages signed artifacts locally, then uploads a bundle to the **Sonatype Central Portal** for publication to **Maven Central**
 3. Publishes the Kotlin library to **GitHub Packages**
 4. The git tag itself serves as the **Swift Package Manager** release
 
@@ -29,12 +29,16 @@ Before your first release, configure these repository secrets in **Settings → 
 
 | Secret | Description |
 |--------|-------------|
-| `OSSRH_USERNAME` | Sonatype OSSRH / Maven Central username |
-| `OSSRH_PASSWORD` | Sonatype OSSRH / Maven Central password or token |
+| `OSSRH_USERNAME` | Sonatype Central Portal username (token) |
+| `OSSRH_PASSWORD` | Sonatype Central Portal password (token) |
 | `GPG_PRIVATE_KEY` | ASCII-armored GPG private key for signing artifacts |
 | `GPG_PASSPHRASE` | Passphrase for the GPG key |
 
 `GITHUB_TOKEN` is provided automatically by GitHub Actions.
+
+### Sonatype Central Portal Token
+
+Generate a token at [central.sonatype.com → Account → Generate User Token](https://central.sonatype.com/account). Copy the **username** and **password** values into `OSSRH_USERNAME` and `OSSRH_PASSWORD` respectively. Ensure the namespace `ch.trancee` is verified in the portal.
 
 ### Generating a GPG Key
 
@@ -85,7 +89,9 @@ Follow [Semantic Versioning](https://semver.org):
 The [release workflow](https://github.com/trancee/blake-hash/actions/workflows/release.yml) starts automatically. It will:
 
 1. **Test** — run the full suite on Android (ubuntu/JDK 21) and iOS (macOS 15)
-2. **Publish** — extract the version from the tag and publish to both Maven repositories
+2. **Stage** — build, sign, and stage artifacts to a local directory
+3. **Upload** — bundle the staged artifacts and upload to the [Sonatype Central Portal](https://central.sonatype.com) with `publishingType=AUTOMATIC`
+4. **GitHub Packages** — publish the same artifacts to GitHub Packages
 
 The version is derived from the tag: `v1.2.0` → `1.2.0`.
 
@@ -171,8 +177,10 @@ The artifact is written to `~/.m2/repository/ch/trancee/blake-hash/`.
 | Problem | Solution |
 |---------|----------|
 | Workflow fails at signing | Verify `GPG_PRIVATE_KEY` and `GPG_PASSPHRASE` secrets are set correctly. The key must be ASCII-armored. |
-| OSSRH rejects the upload | Check `OSSRH_USERNAME` / `OSSRH_PASSWORD`. Ensure the Sonatype account has publishing permissions for the `ch.trancee` group. |
-| Maven Central doesn't show the artifact | Indexing can take up to 30 minutes. Check the [OSSRH staging repository](https://central.sonatype.com/) directly. |
+| Central Portal rejects the upload (HTTP 401) | Regenerate your token at [central.sonatype.com/account](https://central.sonatype.com/account). Update `OSSRH_USERNAME` / `OSSRH_PASSWORD` secrets. |
+| Central Portal rejects the upload (HTTP 403) | Verify the namespace `ch.trancee` is claimed and verified in the [Central Portal](https://central.sonatype.com/publishing/namespaces). |
+| Central Portal upload succeeds but validation fails | Check the deployment status in the [Central Portal Deployments tab](https://central.sonatype.com/publishing/deployments). Common causes: missing javadoc JAR, unsigned artifacts, or POM issues. |
+| Maven Central doesn't show the artifact | Indexing can take up to 30 minutes after the Central Portal reports success. Check [search.maven.org](https://search.maven.org/search?q=g:ch.trancee%20a:blake-hash). |
 | GitHub Packages auth failure | `GITHUB_TOKEN` is automatic in Actions. For local testing, set `GITHUB_ACTOR` and `GITHUB_TOKEN` environment variables. |
 | Swift PM can't find the version | Ensure the git tag matches `vX.Y.Z` exactly and is pushed. SPM resolves tags directly from the repository. |
 | Tests fail in release workflow | The release workflow runs the same tests as CI. Fix failures on `main` before creating a release. |

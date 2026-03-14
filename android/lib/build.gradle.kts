@@ -93,15 +93,8 @@ publishing {
 
     repositories {
         maven {
-            name = "OSSRH"
-            url = uri("https://central.sonatype.com/repository/maven-snapshots/").let { snap ->
-                if (version.toString().endsWith("-SNAPSHOT")) snap
-                else uri("https://ossrh-staging-api.central.sonatype.com/service/local/staging/deploy/maven2/")
-            }
-            credentials {
-                username = providers.environmentVariable("OSSRH_USERNAME").orNull
-                password = providers.environmentVariable("OSSRH_PASSWORD").orNull
-            }
+            name = "Staging"
+            url = uri(layout.buildDirectory.dir("staging"))
         }
 
         maven {

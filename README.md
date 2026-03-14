@@ -133,7 +133,7 @@ let xof = xofHasher.finalizeXof(outputLength: 128)
 |----------|-------------|
 | [API Reference](docs/API.md) | Full API for Kotlin and Swift — every function, every parameter |
 | [Algorithm Guide](docs/ALGORITHMS.md) | Which algorithm to choose, security levels, performance notes |
-| [Release Process](docs/RELEASE.md) | How to publish a new version to Maven Central and GitHub Releases |
+| [Release Process](RELEASE.md) | How to publish a new version to Maven Central and GitHub Releases |
 | [Contributing](docs/CONTRIBUTING.md) | Build, test, code style, PR process |
 
 ## License
