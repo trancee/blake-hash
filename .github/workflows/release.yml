@@ -1,0 +1,81 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  test:
+    name: Test (${{ matrix.platform }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - platform: Android
+            os: ubuntu-latest
+          - platform: iOS
+            os: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK
+        if: matrix.platform == 'Android'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Set up Gradle
+        if: matrix.platform == 'Android'
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Run Kotlin tests
+        if: matrix.platform == 'Android'
+        working-directory: android
+        run: gradle :lib:test
+
+      - name: Run Swift tests
+        if: matrix.platform == 'iOS'
+        working-directory: ios
+        run: swift test
+
+  publish:
+    name: Publish to Maven
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Extract version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Publish to Maven Central (Sonatype OSSRH)
+        working-directory: android
+        env:
+          OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
+          OSSRH_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+        run: gradle :lib:publishMavenPublicationToOSSRHRepository -PreleaseVersion=${{ steps.version.outputs.VERSION }}
+
+      - name: Publish to GitHub Packages
+        working-directory: android
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+        run: gradle :lib:publishMavenPublicationToGitHubPackagesRepository -PreleaseVersion=${{ steps.version.outputs.VERSION }}
