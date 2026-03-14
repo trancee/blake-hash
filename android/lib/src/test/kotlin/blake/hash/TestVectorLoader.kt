@@ -19,6 +19,9 @@ object TestVectorLoader {
     fun load(filename: String): JSONObject =
         JSONObject(vectorsDir.resolve(filename).readText())
 
+    fun loadArray(filename: String): JSONArray =
+        JSONArray(vectorsDir.resolve(filename).readText())
+
     // ---- Input builders ----
 
     fun hexToBytes(hex: String): ByteArray =
