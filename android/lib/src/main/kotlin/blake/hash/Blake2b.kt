@@ -97,6 +97,9 @@ internal class Blake2bEngine(
     private var bufferOffset = 0
     internal var lastNode: Boolean = false
 
+    // Pre-allocated message word array — avoids per-compress allocation
+    private val m = LongArray(16)
+
     init {
         require(digestLength in 1..MAX_DIGEST) { "digestLength must be 1..64" }
         require(key.size <= MAX_DIGEST) { "key must be 0..64 bytes" }
@@ -190,44 +193,64 @@ internal class Blake2bEngine(
     }
 
     private fun compress(block: ByteArray, off: Int, last: Boolean) {
-        val v = LongArray(16)
-        val m = LongArray(16)
-
-        for (i in 0..7) v[i] = h[i]
-        v[8]  = IV[0]
-        v[9]  = IV[1]
-        v[10] = IV[2]
-        v[11] = IV[3]
-        v[12] = IV[4] xor t0
-        v[13] = IV[5] xor t1
-        v[14] = if (last) IV[6] xor -1L else IV[6]
-        v[15] = if (last && lastNode) IV[7] xor -1L else IV[7]
-
         for (i in 0..15) m[i] = loadLong(block, off + i * 8)
 
+        // Local variables for the working vector — eliminates array bounds checks
+        var v0 = h[0]; var v1 = h[1]; var v2 = h[2]; var v3 = h[3]
+        var v4 = h[4]; var v5 = h[5]; var v6 = h[6]; var v7 = h[7]
+        var v8 = IV[0]; var v9 = IV[1]; var v10 = IV[2]; var v11 = IV[3]
+        var v12 = IV[4] xor t0; var v13 = IV[5] xor t1
+        var v14 = if (last) IV[6] xor -1L else IV[6]
+        var v15 = if (last && lastNode) IV[7] xor -1L else IV[7]
+
         for (round in 0 until ROUNDS) {
-            val s = SIGMA[round % 10]
-            g(v, 0, 4,  8, 12, m[s[ 0]], m[s[ 1]])
-            g(v, 1, 5,  9, 13, m[s[ 2]], m[s[ 3]])
-            g(v, 2, 6, 10, 14, m[s[ 4]], m[s[ 5]])
-            g(v, 3, 7, 11, 15, m[s[ 6]], m[s[ 7]])
-            g(v, 0, 5, 10, 15, m[s[ 8]], m[s[ 9]])
-            g(v, 1, 6, 11, 12, m[s[10]], m[s[11]])
-            g(v, 2, 7,  8, 13, m[s[12]], m[s[13]])
-            g(v, 3, 4,  9, 14, m[s[14]], m[s[15]])
+            val s = (round % 10) shl 4
+            // Column step
+            v0 += v4 + m[SIGMA_FLAT[s]]; v12 = (v12 xor v0).rotateRight(32)
+            v8 += v12; v4 = (v4 xor v8).rotateRight(24)
+            v0 += v4 + m[SIGMA_FLAT[s + 1]]; v12 = (v12 xor v0).rotateRight(16)
+            v8 += v12; v4 = (v4 xor v8).rotateRight(63)
+
+            v1 += v5 + m[SIGMA_FLAT[s + 2]]; v13 = (v13 xor v1).rotateRight(32)
+            v9 += v13; v5 = (v5 xor v9).rotateRight(24)
+            v1 += v5 + m[SIGMA_FLAT[s + 3]]; v13 = (v13 xor v1).rotateRight(16)
+            v9 += v13; v5 = (v5 xor v9).rotateRight(63)
+
+            v2 += v6 + m[SIGMA_FLAT[s + 4]]; v14 = (v14 xor v2).rotateRight(32)
+            v10 += v14; v6 = (v6 xor v10).rotateRight(24)
+            v2 += v6 + m[SIGMA_FLAT[s + 5]]; v14 = (v14 xor v2).rotateRight(16)
+            v10 += v14; v6 = (v6 xor v10).rotateRight(63)
+
+            v3 += v7 + m[SIGMA_FLAT[s + 6]]; v15 = (v15 xor v3).rotateRight(32)
+            v11 += v15; v7 = (v7 xor v11).rotateRight(24)
+            v3 += v7 + m[SIGMA_FLAT[s + 7]]; v15 = (v15 xor v3).rotateRight(16)
+            v11 += v15; v7 = (v7 xor v11).rotateRight(63)
+
+            // Diagonal step
+            v0 += v5 + m[SIGMA_FLAT[s + 8]]; v15 = (v15 xor v0).rotateRight(32)
+            v10 += v15; v5 = (v5 xor v10).rotateRight(24)
+            v0 += v5 + m[SIGMA_FLAT[s + 9]]; v15 = (v15 xor v0).rotateRight(16)
+            v10 += v15; v5 = (v5 xor v10).rotateRight(63)
+
+            v1 += v6 + m[SIGMA_FLAT[s + 10]]; v12 = (v12 xor v1).rotateRight(32)
+            v11 += v12; v6 = (v6 xor v11).rotateRight(24)
+            v1 += v6 + m[SIGMA_FLAT[s + 11]]; v12 = (v12 xor v1).rotateRight(16)
+            v11 += v12; v6 = (v6 xor v11).rotateRight(63)
+
+            v2 += v7 + m[SIGMA_FLAT[s + 12]]; v13 = (v13 xor v2).rotateRight(32)
+            v8 += v13; v7 = (v7 xor v8).rotateRight(24)
+            v2 += v7 + m[SIGMA_FLAT[s + 13]]; v13 = (v13 xor v2).rotateRight(16)
+            v8 += v13; v7 = (v7 xor v8).rotateRight(63)
+
+            v3 += v4 + m[SIGMA_FLAT[s + 14]]; v14 = (v14 xor v3).rotateRight(32)
+            v9 += v14; v4 = (v4 xor v9).rotateRight(24)
+            v3 += v4 + m[SIGMA_FLAT[s + 15]]; v14 = (v14 xor v3).rotateRight(16)
+            v9 += v14; v4 = (v4 xor v9).rotateRight(63)
         }
 
-        for (i in 0..7) h[i] = h[i] xor v[i] xor v[i + 8]
-    }
-
-    private fun g(v: LongArray, a: Int, b: Int, c: Int, d: Int, x: Long, y: Long) {
-        v[a] = v[a] + v[b] + x
-        v[d] = (v[d] xor v[a]).rotateRight(32)
-        v[c] = v[c] + v[d]
-        v[b] = (v[b] xor v[c]).rotateRight(24)
-        v[a] = v[a] + v[b] + y
-        v[d] = (v[d] xor v[a]).rotateRight(16)
-        v[c] = v[c] + v[d]
-        v[b] = (v[b] xor v[c]).rotateRight(63)
+        h[0] = h[0] xor v0 xor v8;  h[1] = h[1] xor v1 xor v9
+        h[2] = h[2] xor v2 xor v10; h[3] = h[3] xor v3 xor v11
+        h[4] = h[4] xor v4 xor v12; h[5] = h[5] xor v5 xor v13
+        h[6] = h[6] xor v6 xor v14; h[7] = h[7] xor v7 xor v15
     }
 }

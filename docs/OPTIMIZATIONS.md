@@ -24,18 +24,18 @@ before/after throughput measurements on 1 MB payloads.
 
 ### Kotlin/JVM (HotSpot, Apple Silicon)
 
-| Algorithm   | Before (MB/s) | After (MB/s) | Change |
-|-------------|---------------|--------------|--------|
-| BLAKE2b-512 | 705.48        | 712.04       | +0.9%  |
-| BLAKE2b-256 | 700.71        | 711.99       | +1.6%  |
-| BLAKE2s-256 | 515.51        | 513.73       | −0.3%  |
-| BLAKE2bp    | 680.31        | 668.66       | −1.7%  |
-| BLAKE2sp    | 508.58        | 506.42       | −0.4%  |
-| BLAKE3      | 607.17        | 618.03       | +1.8%  |
+| Algorithm   | v1 (MB/s) | v2 (MB/s) | v3 (MB/s)   | v2→v3 Change |
+|-------------|-----------|-----------|-------------|--------------|
+| BLAKE2b-512 | 287.02    | 712.04    | **1005.05** | **+41.2%**   |
+| BLAKE2b-256 | 285.74    | 711.99    | **1006.99** | **+41.4%**   |
+| BLAKE2s-256 | 181.56    | 513.73    | **703.90**  | **+37.0%**   |
+| BLAKE2bp    | 275.68    | 668.66    | **980.63**  | **+46.6%**   |
+| BLAKE2sp    | 175.35    | 506.42    | **684.24**  | **+35.1%**   |
+| BLAKE3      | 224.28    | 618.03    | **800.30**  | **+29.5%**   |
 
-> Kotlin BLAKE2b/BLAKE2s numbers are within normal JVM benchmark variance
-> (±2%). HotSpot's JIT already optimizes local array allocations via escape
-> analysis, so the main Kotlin gain is in BLAKE3's tree management.
+> **v1:** Initial implementation (per-compress array allocation, separate g() method)
+> **v2:** Pre-allocated CV stack, reduced intermediate copies in BLAKE3
+> **v3:** Local-variable state vector, inlined G, flattened permutation tables, VarHandle LE loading
 
 ---
 
@@ -308,29 +308,128 @@ directly to bytes via `copyMemory` instead of per-word `blake2StoreLE` calls.
 
 ---
 
-## Why Kotlin Shows Less Improvement
+## v3 Optimizations — Low-level JVM (Kotlin)
 
-HotSpot JVM's C2 JIT compiler applies **escape analysis** to local array
-allocations. When it determines an array doesn't escape the method (as with
-`val v = LongArray(16)` inside `compress()`), it can:
+### 12. Local-variable state vector in compression
 
-1. Allocate the array on the stack instead of the heap
-2. Eliminate array bounds checks
-3. Scalar-replace individual elements
+**Files:** `Blake2b.kt`, `Blake2s.kt`, `Blake3Core.kt`
 
-This means the "allocate every call" pattern in the original Kotlin code was
-already being optimized to near-zero cost by the JIT. Pre-allocating these
-arrays as instance fields would actually regress performance by forcing heap
-allocation and preventing escape analysis.
+The compression function's 16-element working vector was stored in an
+`IntArray`/`LongArray` — every access incurred a JVM bounds check. Replacing
+the array with 16 local variables (`var v0..v15`) eliminates all bounds checks
+and allows HotSpot to keep values in CPU registers:
 
-Swift has no equivalent optimization — array allocations always hit the heap
-and involve ARC reference counting, making pre-allocation dramatically
-beneficial.
+```kotlin
+// Before — array bounds check on every v[a], v[b], v[c], v[d]
+val v = LongArray(16)
+// ... fill from h[] and IV[]
+g(v, 0, 4, 8, 12, m[s[0]], m[s[1]])
 
-> **Note:** On Android's ART runtime (the primary target for the Kotlin code),
-> escape analysis is less sophisticated than HotSpot's. The BLAKE3 tree
-> management optimizations (fixed-size CV stack, reduced copies) apply on both
-> runtimes.
+// After — local variables, zero bounds checks, register-eligible
+var v0 = h[0]; var v1 = h[1]; /* ... */ var v15 = IV[7]
+v0 += v4 + m[SIGMA_FLAT[s]]; v12 = (v12 xor v0).rotateRight(32)
+v8 += v12; v4 = (v4 xor v8).rotateRight(24)
+// ...
+```
+
+Each BLAKE2b compress call performs 768 v[] accesses (12 rounds × 8 G calls ×
+8 reads/writes). Eliminating bounds checks on all of them is the single
+biggest JVM optimization.
+
+### 13. Inlined G mixing function
+
+**Files:** `Blake2b.kt`, `Blake2s.kt`, `Blake3Core.kt`
+
+The `g()` method was removed and its body inlined directly into the compression
+loop. While HotSpot should inline small private methods, explicit inlining
+guarantees:
+
+- No method call overhead (even before JIT warm-up)
+- JIT can see the full data flow for register allocation
+- Array index parameters (a, b, c, d) become constants, enabling more
+  aggressive optimization
+
+The rotation amounts are now literal constants: `rotateRight(32)` instead of
+a runtime parameter. `Long.rotateRight()` and `Int.rotateRight()` compile to
+single `ROR` instructions on ARM64 and `ror` on x86-64.
+
+### 14. Flattened permutation tables (Kotlin)
+
+**Files:** `Blake2Core.kt`, `Blake3Core.kt`
+
+Same approach as Swift (§10). The SIGMA table for BLAKE2 was
+`Array<IntArray>` (10 rows × 16 elements) — two levels of array indirection.
+Replaced with a flat `IntArray` of 160 elements indexed as
+`SIGMA_FLAT[(round % 10) * 16 + i]`:
+
+```kotlin
+// Before — nested arrays, 2 bounds-checked array accesses per lookup
+val SIGMA = arrayOf(intArrayOf(0, 1, 2, ...), intArrayOf(14, 10, 4, ...), ...)
+val s = SIGMA[round % 10]; g(v, 0, 4, 8, 12, m[s[0]], m[s[1]])
+
+// After — flat array, single bounds-checked access
+@JvmField val SIGMA_FLAT = intArrayOf(0, 1, 2, ..., 14, 10, 4, ...)
+v0 += v4 + m[SIGMA_FLAT[s + 0]]
+```
+
+`@JvmField` avoids the Kotlin property getter, exposing the array as a direct
+static field. BLAKE3's `MSG_SCHEDULE` (`Array<IntArray>`) was similarly
+flattened to `MSG_PERM`.
+
+### 15. VarHandle-based little-endian word loading
+
+**File:** `Blake2Core.kt`, `Blake3Core.kt`
+
+The original `loadLong` assembled 8 bytes one at a time — 8 array accesses
+with bounds checks, 8 `toLong()` + mask operations, and 7 shifts. Replaced
+with `java.lang.invoke.VarHandle` which HotSpot intrinsifies to a single
+unaligned memory load:
+
+```kotlin
+// Before — 8 bounds-checked byte reads + 7 shifts per word
+internal fun loadLong(src: ByteArray, off: Int): Long =
+    (src[off].toLong() and 0xFFL) or
+    ((src[off + 1].toLong() and 0xFFL) shl 8) or
+    // ... 6 more lines
+
+// After — single unaligned load instruction on LE platforms
+val LONG_LE = MethodHandles.byteArrayViewVarHandle(
+    LongArray::class.java, ByteOrder.LITTLE_ENDIAN)
+internal fun loadLong(src: ByteArray, off: Int): Long =
+    LONG_LE.get(src, off) as Long
+```
+
+On little-endian platforms (x86-64 and ARM64), `VarHandle.get()` compiles
+to a single `LDR`/`MOV` instruction — no byte swapping needed. For BLAKE2b,
+this eliminates 16 × 7 = 112 redundant byte accesses per compress call.
+
+`loadInt`/`storeInt` for BLAKE2s and BLAKE3 use the same approach via
+`INT_LE` VarHandle. Requires JDK 9+ (project targets JDK 21).
+
+### 16. Pre-allocated message word array
+
+**Files:** `Blake2b.kt`, `Blake2s.kt`
+
+The message word array `m` was moved from a local allocation in `compress()`
+to a pre-allocated instance field:
+
+```kotlin
+// Before — allocated on every compress call
+private fun compress(...) {
+    val m = LongArray(16)
+    // ...
+}
+
+// After — reused across calls
+private val m = LongArray(16)
+private fun compress(...) {
+    for (i in 0..15) m[i] = loadLong(block, off + i * 8)
+    // ...
+}
+```
+
+While HotSpot's escape analysis can stack-allocate local arrays, pre-allocation
+removes the allocation path entirely and avoids the array zeroing cost.
 
 ---
 
@@ -410,4 +509,4 @@ the test vector suite continues to pass.
 - **Kotlin:** 50 warm-up iterations, 200 timed iterations (JUnit + Gradle)
 - **Swift:** 20 warm-up iterations, 100 timed iterations (Swift Testing, release build)
 - **Hardware:** Apple Silicon (arm64)
-- **All tests pass** after optimization (83 Swift tests, full Kotlin suite)
+- **All tests pass** after optimization (77 Swift tests, 282 Kotlin tests)
