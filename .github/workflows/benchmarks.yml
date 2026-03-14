@@ -1,0 +1,80 @@
+name: Benchmarks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: benchmarks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  benchmark-android:
+    name: Android (Kotlin/JVM)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v5
+
+      - name: Run benchmarks
+        id: bench
+        working-directory: android
+        run: |
+          gradle :lib:benchmark 2>&1 | tee bench-output.txt
+          grep '^BENCH' bench-output.txt > bench-results.txt || true
+
+      - name: Generate summary
+        working-directory: android
+        run: |
+          {
+            echo '### 🤖 Android (Kotlin/JVM) Benchmarks'
+            echo ''
+            echo '| Algorithm | Data Size | Throughput | Latency |'
+            echo '|-----------|-----------|------------|---------|'
+            while IFS='|' read -r _ name size throughput latency; do
+              name=$(echo "$name" | xargs)
+              size=$(echo "$size" | xargs)
+              throughput=$(echo "$throughput" | xargs)
+              latency=$(echo "$latency" | xargs)
+              echo "| $name | $size | $throughput | $latency |"
+            done < bench-results.txt
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  benchmark-ios:
+    name: iOS (Swift)
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Run benchmarks
+        id: bench
+        working-directory: ios
+        run: |
+          swift test --filter Bench 2>&1 | tee bench-output.txt
+          grep '^BENCH' bench-output.txt > bench-results.txt || true
+
+      - name: Generate summary
+        working-directory: ios
+        run: |
+          {
+            echo '### 🍎 iOS (Swift) Benchmarks'
+            echo ''
+            echo '| Algorithm | Data Size | Throughput | Latency |'
+            echo '|-----------|-----------|------------|---------|'
+            while IFS='|' read -r _ name size throughput latency; do
+              name=$(echo "$name" | xargs)
+              size=$(echo "$size" | xargs)
+              throughput=$(echo "$throughput" | xargs)
+              latency=$(echo "$latency" | xargs)
+              echo "| $name | $size | $throughput | $latency |"
+            done < bench-results.txt
+          } >> "$GITHUB_STEP_SUMMARY"
