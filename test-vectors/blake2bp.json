@@ -1,0 +1,20 @@
+{
+  "algorithm": "BLAKE2bp",
+  "description": "BLAKE2bp (4-way parallel BLAKE2b) test vectors. Output is always 64 bytes. BLAKE2bp produces different output from BLAKE2b. Sequential inputs use bytes([i % 256 for i in range(N)]).",
+  "hash": [
+    { "input": "",    "expected": "b5ef811a8038f70b628fa8b294daae7492b1ebe343a80eaabbf1f6ae664dd67b9d90b0120791eab81dc96985f28849f6a305186a85501b405114bfa678df9380" },
+    { "input": "abc", "expected": "b91a6b66ae87526c400b0a8b53774dc65284ad8f6575f8148ff93dff943a6ecd8362130f22d6dae633aa0f91df4ac89aaff31d0f1b923c898e82025dedbdad6e" },
+    { "input": "The quick brown fox jumps over the lazy dog", "expected": "f10e0523631699102c63412c0701fa19f6550fbac0e9c035803c6033b50465222bb92ee0af0dad53edca32f0e08a72c077a6cafc6f4d24a7fb649079d47ce089" },
+    { "sequentialLength":  64,  "expected": "6b9d86f15c090a00fc3d907f906c5eb79265e58b88eb64294b4cc4e2b89b1a7c5ee3127ed21b456862de6b2abda59eaacf2dcbe922ca755e40735be81d9c88a5" },
+    { "sequentialLength": 128,  "expected": "05ad0f271faf7e361320518452813ff9fb9976ac378050b6eefb05f7867b577b8f14475794cff61b2bc062d346a7c65c6e0067c60a374af7940f10aa449d5fb9" }
+  ],
+  "keyed": {
+    "keyHex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f",
+    "vectors": [
+      { "input": "",    "expected": "9d9461073e4eb640a255357b839f394b838c6ff57c9b686a3f76107c1066728f3c9956bd785cbc3bf79dc2ab578c5a0c063b9d9c405848de1dbe821cd05c940a" },
+      { "input": "abc", "expected": "8943f40e65e41fdbbe79b701b26279125bbe120379dd77d74fdb5faf662ed6a3974aa1dce99a3349a492159fa0ded8245a5167c11886170a3af12888448fa8b2" },
+      { "sequentialLength":  64, "expected": "22b8249eaf722964ce424f71a74d038ff9b615fba5c7c22cb62797f5398224c3f072ebc1dacba32fc6f66360b3e1658d0fa0da1ed1c1da662a2037da823a3383" },
+      { "sequentialLength": 128, "expected": "9280f4d1157032ab315c100d636283fbf4fba2fbad0f8bc020721d76bc1c8973ced28871cc907dab60e59756987b0e0f867fa2fe9d9041f2c9618074e44fe5e9" }
+    ]
+  }
+}

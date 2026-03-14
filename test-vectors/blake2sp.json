@@ -1,0 +1,20 @@
+{
+  "algorithm": "BLAKE2sp",
+  "description": "BLAKE2sp (8-way parallel BLAKE2s) test vectors. Output is always 32 bytes. BLAKE2sp produces different output from BLAKE2s. Sequential inputs use bytes([i % 256 for i in range(N)]).",
+  "hash": [
+    { "input": "",    "expected": "dd0e891776933f43c7d032b08a917e25741f8aa9a12c12e1cac8801500f2ca4f" },
+    { "input": "abc", "expected": "70f75b58f1fecab821db43c88ad84edde5a52600616cd22517b7bb14d440a7d5" },
+    { "input": "The quick brown fox jumps over the lazy dog", "expected": "cf192976714bb648e72b29fa90e6bf0fbc5bf2efe7d5c26ed8ff34e855368691" },
+    { "sequentialLength":  64,  "expected": "52603b6cbfad4966cb044cb267568385cf35f21e6c45cf30aed19832cb51e9f5" },
+    { "sequentialLength": 128,  "expected": "05cf3a90049116dc60efc31536aaa3d167762994892876dcb7ef3fbecd7449c0" }
+  ],
+  "keyed": {
+    "keyHex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "vectors": [
+      { "input": "",    "expected": "715cb13895aeb678f6124160bff21465b30f4f6874193fc851b4621043f09cc6" },
+      { "input": "abc", "expected": "b334a26923410dc586088f365ce36a12bedd33e03c0f4a3808a716dca3a721f0" },
+      { "sequentialLength":  64, "expected": "1d3701a5661bd31ab20562bd07b74dd19ac8f3524b73ce7bc996b788afd2f317" },
+      { "sequentialLength": 128, "expected": "0c6ce32a3ea05612c5f8090f6a7e87f5ab30e41b707dcbe54155620ad770a340" }
+    ]
+  }
+}

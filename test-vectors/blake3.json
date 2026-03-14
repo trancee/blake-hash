@@ -1,0 +1,89 @@
+{
+  "algorithm": "BLAKE3",
+  "description": "BLAKE3 test vectors from the official BLAKE3 test suite and C2SP spec. Sequential inputs use bytes([i % 251 for i in range(N)]).",
+  "keyHex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+  "deriveKeyContext": "BLAKE3 2019-12-27 16:29:52 test vectors context",
+  "hash": {
+    "named": [
+      { "input": "",    "expected": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262" },
+      { "input": "abc", "expected": "6437b3ac38465133ffb63b75273a8db548c558465d79db03fd359c6cd5bd9d85" },
+      { "input": "IETF", "expected": "83a2de1ee6f4e6ab686889248f4ec0cf4cc5709446a682ffd1cbb4d6165181e2" },
+      { "input": "The quick brown fox jumps over the lazy dog", "expected": "2f1514181aadccd913abd94cfa592701a5686ab23f8df1dff1b74710febc6d4a" }
+    ],
+    "sequential": [
+      { "inputLength":      0, "expected": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262" },
+      { "inputLength":      1, "expected": "2d3adedff11b61f14c886e35afa036736dcd87a74d27b5c1510225d0f592e213" },
+      { "inputLength":      2, "expected": "7b7015bb92cf0b318037702a6cdd81dee41224f734684c2c122cd6359cb1ee63" },
+      { "inputLength":      3, "expected": "e1be4d7a8ab5560aa4199eea339849ba8e293d55ca0a81006726d184519e647f" },
+      { "inputLength":      4, "expected": "f30f5ab28fe047904037f77b6da4fea1e27241c5d132638d8bedce9d40494f32" },
+      { "inputLength":      8, "expected": "2351207d04fc16ade43ccab08600939c7c1fa70a5c0aaca76063d04c3228eaeb" },
+      { "inputLength":     63, "expected": "e9bc37a594daad83be9470df7f7b3798297c3d834ce80ba85d6e207627b7db7b" },
+      { "inputLength":     64, "expected": "4eed7141ea4a5cd4b788606bd23f46e212af9cacebacdc7d1f4c6dc7f2511b98" },
+      { "inputLength":     65, "expected": "de1e5fa0be70df6d2be8fffd0e99ceaa8eb6e8c93a63f2d8d1c30ecb6b263dee" },
+      { "inputLength":    128, "expected": "f17e570564b26578c33bb7f44643f539624b05df1a76c81f30acd548c44b45ef" },
+      { "inputLength":   1023, "expected": "10108970eeda3eb932baac1428c7a2163b0e924c9a9e25b35bba72b28f70bd11" },
+      { "inputLength":   1024, "expected": "42214739f095a406f3fc83deb889744ac00df831c10daa55189b5d121c855af7" },
+      { "inputLength":   1025, "expected": "d00278ae47eb27b34faecf67b4fe263f82d5412916c1ffd97c8cb7fb814b8444" },
+      { "inputLength":   2048, "expected": "e776b6028c7cd22a4d0ba182a8bf62205d2ef576467e838ed6f2529b85fba24a" },
+      { "inputLength":   4096, "expected": "015094013f57a5277b59d8475c0501042c0b642e531b0a1c8f58d2163229e969" },
+      { "inputLength":   8192, "expected": "aae792484c8efe4f19e2ca7d371d8c467ffb10748d8a5a1ae579948f718a2a63" },
+      { "inputLength":  16384, "expected": "f875d6646de28985646f34ee13be9a576fd515f76b5b0a26bb324735041ddde4" },
+      { "inputLength":  65536, "expected": "68d647e619a930e7b1082f74f334b0c65a315725569bdc123f0ee11881717bfe" },
+      { "inputLength": 131072, "expected": "306baba93b1a393cbd35172837c98b0f59a41f64e1b2682ae102d8b2534b9e1c" }
+    ]
+  },
+  "keyedHash": [
+    { "inputLength":     0, "expected": "73492b19995d71cdb1e9d74decc09809eb732f1b00bc95c27cb15f9dd4d6478f" },
+    { "inputLength":     1, "expected": "d08b45c6b127ee94f3f8527a0b82a5f80be1695a0eaec6022e772c0eb95a7e8b" },
+    { "inputLength":     2, "expected": "3a771bec5c84aa7ad8c0e214a0598c1d7091113e60595bd2b6db9d4725955e6a" },
+    { "inputLength":     3, "expected": "e5326c9674055c012371eb5e26424317732fee320660bdd86d4f719edd7caa29" },
+    { "inputLength":     4, "expected": "ecc370c5be25c5de9f633943eeed5ebb22df19f35dac8a37389ef618798a9736" },
+    { "inputLength":     8, "expected": "8493f7c4b5f5373035a1316f0ec81d498942ffd7ca4d50c9d43140ca8ec376a6" },
+    { "inputLength":    63, "expected": "e471df92f6f7dee100138af7da29695906b0dc34ccde2142a730dd4ebcbc09cc" },
+    { "inputLength":    64, "expected": "cfaf838ff320e0d87301dcba02b1a4bb397d65119f57403df2817a51d4025f9b" },
+    { "inputLength":    65, "expected": "d8a45528bfa93a0d9b7bf4c840b68f64af0b9ad3d0bbd6c1421c2a4cf1cdf3b4" },
+    { "inputLength":   128, "expected": "fe43a847dfccdfa5f070664fb8b51d7b906341ff81ac4adafbf6a3ffac564def" },
+    { "inputLength":  1023, "expected": "da1f18069871512af22af9f13dc005800dfd52c55f42753b5ae718086fe2ee44" },
+    { "inputLength":  1024, "expected": "f45a9249a627fdf1fcf13c0e6376f6a9a9b2056d6e1b5693a4b119a3453665f9" },
+    { "inputLength":  1025, "expected": "82223147a9b804a0c3f9a921b8d8aee250d1a51bb76be72152e6d5e8f27349b3" },
+    { "inputLength":  2048, "expected": "636bfa717d4f9fc3e59da9b2e5cce6a2b78eb70469c0fce49da38b5419892423" },
+    { "inputLength":  4096, "expected": "e8c6e859e0480c4b062457defd04d2f4303b6cc280a0fe080ec5c4346a171937" }
+  ],
+  "deriveKey": [
+    { "inputLength":     0, "expected": "2cc39783c223154fea8dfb7c1b1660f2ac2dcbd1c1de8277b0b0dd39b7e50d7d" },
+    { "inputLength":     1, "expected": "b3e2e340a117a499c6cf2398a19ee0d29cca2bb7404c73063382693bf66cb06c" },
+    { "inputLength":     2, "expected": "1f166565a7df0098ee65922d7fea425fb18b9943f19d6161e2d17939356168e6" },
+    { "inputLength":     3, "expected": "440aba35cb006b61fc17c0529255de438efc06a8c9ebf3f2ddac3b5a86705797" },
+    { "inputLength":     4, "expected": "f46085c8190d69022369ce1a18880e9b369c135eb93f3c63550d3e7630e91060" },
+    { "inputLength":     8, "expected": "2b166978cef14d9d438046c720519d8b1cad707e199746f1562d0c87fbd32940" },
+    { "inputLength":    63, "expected": "b6451e30b953c206e34644c6803724e9d2725e0893039cfc49584f991f451af3" },
+    { "inputLength":    64, "expected": "a5c4a7053fa86b64746d4bb688d06ad1f02a18fce9afd3e818fefaa7126bf73e" },
+    { "inputLength":    65, "expected": "51fd05c3c1cfbc8ed67d139ad76f5cf8236cd2acd26627a30c104dfd9d3ff8a8" },
+    { "inputLength":   128, "expected": "81720f34452f58a0120a58b6b4608384b5c51d11f39ce97161a0c0e442ca0225" },
+    { "inputLength":  1023, "expected": "74a16c1c3d44368a86e1ca6df64be6a2f64cce8f09220787450722d85725dea5" },
+    { "inputLength":  1024, "expected": "7356cd7720d5b66b6d0697eb3177d9f8d73a4a5c5e968896eb6a689684302706" },
+    { "inputLength":  1025, "expected": "effaa245f065fbf82ac186839a249707c3bddf6d3fdda22d1b95a3c970379bcb" },
+    { "inputLength":  2048, "expected": "7b2945cb4fef70885cc5d78a87bf6f6207dd901ff239201351ffac04e1088a23" },
+    { "inputLength":  4096, "expected": "1e0d7f3db8c414c97c6307cbda6cd27ac3b030949da8e23be1a1a924ad2f25b9" }
+  ],
+  "xof": {
+    "hash": [
+      { "input": "",    "outputBytes": 32,  "expected": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262" },
+      { "input": "",    "outputBytes": 64,  "expected": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262e00f03e7b69af26b7faaf09fcd333050338ddfe085b8cc869ca98b206c08243a" },
+      { "input": "",    "outputBytes": 128, "expected": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262e00f03e7b69af26b7faaf09fcd333050338ddfe085b8cc869ca98b206c08243a26f5487789e8f660afe6c99ef9e0c52b92e7393024a80459cf91f476f9ffdbda7001c22e159b402631f277ca96f2defdf1078282314e763699a31c5363165421" },
+      { "input": "abc", "outputBytes": 32,  "expected": "6437b3ac38465133ffb63b75273a8db548c558465d79db03fd359c6cd5bd9d85" },
+      { "input": "abc", "outputBytes": 64,  "expected": "6437b3ac38465133ffb63b75273a8db548c558465d79db03fd359c6cd5bd9d851fb250ae7393f5d02813b65d521a0d492d9ba09cf7ce7f4cffd900f23374bf0b" },
+      { "input": "abc", "outputBytes": 128, "expected": "6437b3ac38465133ffb63b75273a8db548c558465d79db03fd359c6cd5bd9d851fb250ae7393f5d02813b65d521a0d492d9ba09cf7ce7f4cffd900f23374bf0bc08a1fb0b38ed276181ccbd9f7b7edbddf9f86404ad7929605f6ffa3fb1ac87983105f013384f2f11d38879c985d47003804b905f0c38975e28d36804bb60d8c" }
+    ],
+    "keyed": [
+      { "input": "", "outputBytes": 32,  "expected": "73492b19995d71cdb1e9d74decc09809eb732f1b00bc95c27cb15f9dd4d6478f" },
+      { "input": "", "outputBytes": 64,  "expected": "73492b19995d71cdb1e9d74decc09809eb732f1b00bc95c27cb15f9dd4d6478f097a9b78582396441e22930e5c7c98fd07f896796c81420f14eb9812f0482857" },
+      { "input": "", "outputBytes": 128, "expected": "73492b19995d71cdb1e9d74decc09809eb732f1b00bc95c27cb15f9dd4d6478f097a9b78582396441e22930e5c7c98fd07f896796c81420f14eb9812f04828571ebaff5af3de2f693214152e1e3825fa4deeea0414483125b4d46ee75ca0b6e8602d0a3cacd8cf0850a291f18b46392f99c74b64e12ae2247592e33668bf6633" }
+    ],
+    "deriveKey": [
+      { "input": "", "outputBytes": 32,  "expected": "2cc39783c223154fea8dfb7c1b1660f2ac2dcbd1c1de8277b0b0dd39b7e50d7d" },
+      { "input": "", "outputBytes": 64,  "expected": "2cc39783c223154fea8dfb7c1b1660f2ac2dcbd1c1de8277b0b0dd39b7e50d7d905630c8be290dfcf3e6842f13bddd573c098c3f17361f1f206b8cad9d088aa4" },
+      { "input": "", "outputBytes": 128, "expected": "2cc39783c223154fea8dfb7c1b1660f2ac2dcbd1c1de8277b0b0dd39b7e50d7d905630c8be290dfcf3e6842f13bddd573c098c3f17361f1f206b8cad9d088aa4a3f746752c6b0ce6a83b0da81d59649257cdf8eb3e9f7d4998e41021fac119deefb896224ac99f860011f73609e6e0e4540f93b273e56547dfd3aa1a035ba668" }
+    ]
+  }
+}
