@@ -30,7 +30,7 @@ jobs:
         working-directory: android
         run: |
           gradle :lib:benchmark 2>&1 | tee bench-output.txt
-          grep '^BENCH' bench-output.txt > bench-results.txt || true
+          grep 'BENCH |' bench-output.txt | sed 's/^[[:space:]]*//' > bench-results.txt || true
 
       - name: Generate summary
         working-directory: android
