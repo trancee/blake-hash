@@ -54,7 +54,7 @@ Add the local package or a Git dependency in Xcode or `Package.swift`:
 // Package.swift
 dependencies: [
     .package(path: "../blake-hash/ios")
-    // or: .package(url: "https://github.com/user/blake-hash.git", from: "1.0.0")
+    // or: .package(url: "https://github.com/trancee/blake-hash.git", from: "1.0.0")
 ]
 ```
 
