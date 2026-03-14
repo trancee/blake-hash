@@ -33,28 +33,26 @@ Zero external dependencies. Covers BLAKE2b, BLAKE2s, BLAKE2bp, BLAKE2sp, and BLA
 
 ### Android (Gradle — Kotlin DSL)
 
-Add the library module to your project, or copy the source files under `blake.hash` into your app:
-
 ```kotlin
-// settings.gradle.kts
-include(":blake-hash")
-project(":blake-hash").projectDir = file("path/to/blake-hash/android/lib")
+// build.gradle.kts
+repositories {
+    mavenCentral()
+}
 
-// app/build.gradle.kts
 dependencies {
-    implementation(project(":blake-hash"))
+    implementation("ch.trancee:blake-hash:1.0.0")
 }
 ```
 
 ### iOS (Swift Package Manager)
 
-Add the local package or a Git dependency in Xcode or `Package.swift`:
+In Xcode: **File → Add Package Dependencies** → enter `https://github.com/trancee/blake-hash.git`.
+
+Or in `Package.swift`:
 
 ```swift
-// Package.swift
 dependencies: [
-    .package(path: "../blake-hash/ios")
-    // or: .package(url: "https://github.com/trancee/blake-hash.git", from: "1.0.0")
+    .package(url: "https://github.com/trancee/blake-hash.git", from: "1.0.0")
 ]
 ```
 
