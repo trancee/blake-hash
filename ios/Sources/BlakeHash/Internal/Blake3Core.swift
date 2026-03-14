@@ -100,39 +100,55 @@ internal func blake3Compress(
     blockLen: UInt32,
     flags: UInt32
 ) -> [UInt32] {
+    var out = [UInt32](repeating: 0, count: 16)
+    blake3CompressInto(chainingValue: cv, blockWords: m, counter: counter,
+                       blockLen: blockLen, flags: flags, out: &out)
+    return out
+}
+
+/// Compression function writing into a pre-allocated output array.
+@inline(__always)
+internal func blake3CompressInto(
+    chainingValue cv: [UInt32],
+    blockWords m: [UInt32],
+    counter: UInt64,
+    blockLen: UInt32,
+    flags: UInt32,
+    out: inout [UInt32]
+) {
     let iv = Blake3Constants.IV
-    var v: [UInt32] = [
-        cv[0], cv[1], cv[2], cv[3],
-        cv[4], cv[5], cv[6], cv[7],
-        iv[0], iv[1], iv[2], iv[3],
-        UInt32(truncatingIfNeeded: counter),
-        UInt32(truncatingIfNeeded: counter >> 32),
-        blockLen,
-        flags,
-    ]
+    // Reuse the output array as working vector
+    out[0] = cv[0]; out[1] = cv[1]; out[2] = cv[2]; out[3] = cv[3]
+    out[4] = cv[4]; out[5] = cv[5]; out[6] = cv[6]; out[7] = cv[7]
+    out[8] = iv[0]; out[9] = iv[1]; out[10] = iv[2]; out[11] = iv[3]
+    out[12] = UInt32(truncatingIfNeeded: counter)
+    out[13] = UInt32(truncatingIfNeeded: counter >> 32)
+    out[14] = blockLen
+    out[15] = flags
 
     for round in 0..<7 {
         let perm = Blake3Constants.MSG_PERMUTATION[round]
-
-        // Column step — index directly through permutation, no intermediate array
-        g(&v, 0, 4, 8, 12, m[perm[0]], m[perm[1]])
-        g(&v, 1, 5, 9, 13, m[perm[2]], m[perm[3]])
-        g(&v, 2, 6, 10, 14, m[perm[4]], m[perm[5]])
-        g(&v, 3, 7, 11, 15, m[perm[6]], m[perm[7]])
-        // Diagonal step
-        g(&v, 0, 5, 10, 15, m[perm[8]], m[perm[9]])
-        g(&v, 1, 6, 11, 12, m[perm[10]], m[perm[11]])
-        g(&v, 2, 7, 8, 13, m[perm[12]], m[perm[13]])
-        g(&v, 3, 4, 9, 14, m[perm[14]], m[perm[15]])
+        g(&out, 0, 4, 8, 12, m[perm[0]], m[perm[1]])
+        g(&out, 1, 5, 9, 13, m[perm[2]], m[perm[3]])
+        g(&out, 2, 6, 10, 14, m[perm[4]], m[perm[5]])
+        g(&out, 3, 7, 11, 15, m[perm[6]], m[perm[7]])
+        g(&out, 0, 5, 10, 15, m[perm[8]], m[perm[9]])
+        g(&out, 1, 6, 11, 12, m[perm[10]], m[perm[11]])
+        g(&out, 2, 7, 8, 13, m[perm[12]], m[perm[13]])
+        g(&out, 3, 4, 9, 14, m[perm[14]], m[perm[15]])
     }
 
-    // Output: first 8 = v[0..7] ^ v[8..15], second 8 = v[8..15] ^ cv[0..7]
-    var out = [UInt32](repeating: 0, count: 16)
-    for i in 0..<8 {
-        out[i] = v[i] ^ v[i + 8]
-        out[i + 8] = v[i + 8] ^ cv[i]
-    }
-    return out
+    // Save v[8..15] before overwriting
+    let v8 = out[8]; let v9 = out[9]; let v10 = out[10]; let v11 = out[11]
+    let v12 = out[12]; let v13 = out[13]; let v14 = out[14]; let v15 = out[15]
+    out[0] = out[0] ^ v8;  out[8]  = v8  ^ cv[0]
+    out[1] = out[1] ^ v9;  out[9]  = v9  ^ cv[1]
+    out[2] = out[2] ^ v10; out[10] = v10 ^ cv[2]
+    out[3] = out[3] ^ v11; out[11] = v11 ^ cv[3]
+    out[4] = out[4] ^ v12; out[12] = v12 ^ cv[4]
+    out[5] = out[5] ^ v13; out[13] = v13 ^ cv[5]
+    out[6] = out[6] ^ v14; out[14] = v14 ^ cv[6]
+    out[7] = out[7] ^ v15; out[15] = v15 ^ cv[7]
 }
 
 // MARK: - Output (for root finalization / XOF)
@@ -145,36 +161,41 @@ internal struct Blake3Output {
     let flags: UInt32
 
     func chainingValue() -> [UInt32] {
-        Array(blake3Compress(
+        var out = [UInt32](repeating: 0, count: 16)
+        blake3CompressInto(
             chainingValue: inputChainingValue,
             blockWords: blockWords,
             counter: counter,
             blockLen: blockLen,
-            flags: flags
-        ).prefix(8))
+            flags: flags,
+            out: &out
+        )
+        return Array(out[0..<8])
     }
 
     func rootOutputBytes(outputLength: Int) -> [UInt8] {
         var result = [UInt8](repeating: 0, count: outputLength)
         var outputBlockCounter: UInt64 = 0
         var written = 0
+        var compressOut = [UInt32](repeating: 0, count: 16)
 
         while written < outputLength {
-            let words = blake3Compress(
+            blake3CompressInto(
                 chainingValue: inputChainingValue,
                 blockWords: blockWords,
                 counter: outputBlockCounter,
                 blockLen: blockLen,
-                flags: flags | Blake3Constants.ROOT
+                flags: flags | Blake3Constants.ROOT,
+                out: &compressOut
             )
             let needed = min(64, outputLength - written)
             let fullWords = needed / 4
             let remainder = needed % 4
             for i in 0..<fullWords {
-                storeLE32(words[i], into: &result, at: written + i * 4)
+                storeLE32(compressOut[i], into: &result, at: written + i * 4)
             }
             if remainder > 0 {
-                let w = words[fullWords]
+                let w = compressOut[fullWords]
                 for j in 0..<remainder {
                     result[written + fullWords * 4 + j] = UInt8(truncatingIfNeeded: w >> (j * 8))
                 }
@@ -196,6 +217,10 @@ internal struct Blake3ChunkState {
     var blocksCompressed: Int
     var flags: UInt32
 
+    // Pre-allocated working arrays
+    private var blockWords: [UInt32]
+    private var compressOut: [UInt32]
+
     init(key: [UInt32], chunkCounter: UInt64, flags: UInt32) {
         self.chainingValue = key
         self.chunkCounter = chunkCounter
@@ -203,6 +228,8 @@ internal struct Blake3ChunkState {
         self.blockLen = 0
         self.blocksCompressed = 0
         self.flags = flags
+        self.blockWords = [UInt32](repeating: 0, count: 16)
+        self.compressOut = [UInt32](repeating: 0, count: 16)
     }
 
     var totalLen: Int {
@@ -218,41 +245,53 @@ internal struct Blake3ChunkState {
         var offset = inputOffset
         let end = inputOffset + length
         while offset < end {
-            // If the block buffer is full, compress it
             if blockLen == Blake3Constants.BLOCK_LEN {
-                let blockWords = wordsFromBytes(block)
-                chainingValue = Array(blake3Compress(
+                for i in 0..<16 {
+                    blockWords[i] = loadLE32(block, at: i * 4)
+                }
+                blake3CompressInto(
                     chainingValue: chainingValue,
                     blockWords: blockWords,
                     counter: chunkCounter,
                     blockLen: UInt32(Blake3Constants.BLOCK_LEN),
-                    flags: flags | startFlag
-                ).prefix(8))
+                    flags: flags | startFlag,
+                    out: &compressOut
+                )
+                for i in 0..<8 { chainingValue[i] = compressOut[i] }
                 blocksCompressed += 1
-                // Zero the block instead of allocating a new one
                 for i in 0..<Blake3Constants.BLOCK_LEN { block[i] = 0 }
                 blockLen = 0
             }
 
             let want = Blake3Constants.BLOCK_LEN - blockLen
             let take = min(want, end - offset)
-            // Copy bytes directly instead of using replaceSubrange
-            for i in 0..<take {
-                block[blockLen + i] = input[offset + i]
-            }
+            block.replaceSubrange(blockLen..<(blockLen + take),
+                                  with: input[offset..<(offset + take)])
             blockLen += take
             offset += take
         }
     }
 
     func output() -> Blake3Output {
-        let blockWords = wordsFromBytes(block)
+        var words = [UInt32](repeating: 0, count: 16)
+        let fullWords = blockLen / 4
+        for i in 0..<fullWords {
+            words[i] = loadLE32(block, at: i * 4)
+        }
+        let remainder = blockLen % 4
+        if remainder > 0 {
+            var w: UInt32 = 0
+            let base = fullWords * 4
+            for i in 0..<remainder {
+                w |= UInt32(block[base + i]) << (i * 8)
+            }
+            words[fullWords] = w
+        }
         var blockFlags = flags | startFlag
-        // If this is the last (or only) block in the chunk
         blockFlags |= Blake3Constants.CHUNK_END
         return Blake3Output(
             inputChainingValue: chainingValue,
-            blockWords: blockWords,
+            blockWords: words,
             counter: chunkCounter,
             blockLen: UInt32(blockLen),
             flags: blockFlags

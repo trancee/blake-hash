@@ -186,13 +186,15 @@ internal object Blake3Core {
         val blockLen: Int,
         val flags: Int
     ) {
-        // Pre-allocated scratch array for compress output
+        // Pre-allocated scratch arrays to avoid per-call allocation
         private val compressOut = IntArray(16)
+        private val cvOut = IntArray(8)
 
         /** First 8 words of compression output (used as chaining value). */
         fun chainingValueWords(): IntArray {
             compress(chainingValue, blockWords, counter, blockLen, flags, compressOut)
-            return compressOut.copyOfRange(0, 8)
+            compressOut.copyInto(cvOut, 0, 0, 8)
+            return cvOut
         }
 
         /** First 8 words of root compression into a pre-allocated destination. */
@@ -204,7 +206,9 @@ internal object Blake3Core {
         /** First 8 words of root compression (includes ROOT flag). */
         fun rootChainingValue(): IntArray {
             compress(chainingValue, blockWords, counter, blockLen, flags or ROOT, compressOut)
-            return compressOut.copyOfRange(0, 8)
+            val result = IntArray(8)
+            compressOut.copyInto(result, 0, 0, 8)
+            return result
         }
 
         /** Produce arbitrary-length output (XOF) — writes directly to result. */
@@ -276,14 +280,17 @@ internal object Blake3Core {
 
         /** Return the Output for this chunk's final block. */
         fun output(): Output {
-            val finalWords = bytesToWords(block, 0, blockLen)
+            bytesToWords(block, 0, blockLen, blockWords)
             var flags = baseFlags or CHUNK_END
             if (blocksCompressed == 0) flags = flags or CHUNK_START
-            return Output(chainingValue, finalWords, chunkCounter, blockLen, flags)
+            return Output(chainingValue, blockWords.copyOf(), chunkCounter, blockLen, flags)
         }
     }
 
     // ---- Parent node helper ----
+
+    // Pre-allocated scratch for parent node block words
+    private val parentBlockWords = IntArray(16)
 
     fun parentOutput(
         leftChild: IntArray,
@@ -291,10 +298,9 @@ internal object Blake3Core {
         key: IntArray,
         flags: Int
     ): Output {
-        val blockWords = IntArray(16)
-        leftChild.copyInto(blockWords, 0, 0, 8)
-        rightChild.copyInto(blockWords, 8, 0, 8)
-        return Output(key, blockWords, 0, BLOCK_LEN, flags or PARENT)
+        leftChild.copyInto(parentBlockWords, 0, 0, 8)
+        rightChild.copyInto(parentBlockWords, 8, 0, 8)
+        return Output(key, parentBlockWords.copyOf(), 0, BLOCK_LEN, flags or PARENT)
     }
 
     fun parentChainingValue(

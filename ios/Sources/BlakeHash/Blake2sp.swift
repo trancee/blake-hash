@@ -67,9 +67,8 @@ public struct Blake2sp: Sendable {
 
             if bufferLength > 0 {
                 let toCopy = min(remaining, Blake2sp.stripeSize - bufferLength)
-                for i in 0..<toCopy {
-                    buffer[bufferLength + i] = input[offset + i]
-                }
+                buffer.replaceSubrange(bufferLength..<(bufferLength + toCopy),
+                                       with: input[offset..<(offset + toCopy)])
                 bufferLength += toCopy
                 offset += toCopy
                 remaining -= toCopy
@@ -93,9 +92,8 @@ public struct Blake2sp: Sendable {
             }
 
             if remaining > 0 {
-                for i in 0..<remaining {
-                    buffer[i] = input[offset + i]
-                }
+                buffer.replaceSubrange(0..<remaining,
+                                       with: input[offset..<(offset + remaining)])
                 bufferLength = remaining
             }
         }

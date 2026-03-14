@@ -126,16 +126,16 @@ internal func blake2Compress<V: Blake2Variant>(
     t0: V.Word,
     t1: V.Word,
     lastBlock: Bool,
-    lastNode: Bool
+    lastNode: Bool,
+    v: inout [V.Word],
+    m: inout [V.Word]
 ) {
     let wordBytes = V.Word.bitWidth / 8
 
-    var m = [V.Word](repeating: 0, count: 16)
     for i in 0..<16 {
         m[i] = blake2LoadLE(block, offset: blockOffset + i * wordBytes)
     }
 
-    var v = [V.Word](repeating: 0, count: 16)
     for i in 0..<8 { v[i] = h[i] }
     v[8]  = V.iv[0]
     v[9]  = V.iv[1]
@@ -177,6 +177,10 @@ internal struct Blake2Engine<V: Blake2Variant>: Sendable {
     internal var isLastNode: Bool
     private var finalized: Bool
 
+    // Pre-allocated working arrays for compress() to avoid per-call allocation
+    private var v: [V.Word]
+    private var m: [V.Word]
+
     internal init(h: [V.Word], digestLength: Int, key: [UInt8] = []) {
         self.h = h
         self.t0 = 0
@@ -185,6 +189,8 @@ internal struct Blake2Engine<V: Blake2Variant>: Sendable {
         self.isLastNode = false
         self.finalized = false
         self.buffer = [UInt8](repeating: 0, count: V.blockSize)
+        self.v = [V.Word](repeating: 0, count: 16)
+        self.m = [V.Word](repeating: 0, count: 16)
 
         if !key.isEmpty {
             for i in 0..<key.count { self.buffer[i] = key[i] }
@@ -207,9 +213,8 @@ internal struct Blake2Engine<V: Blake2Variant>: Sendable {
 
         if bufferLength > 0 {
             let toCopy = min(remaining, V.blockSize - bufferLength)
-            for i in 0..<toCopy {
-                buffer[bufferLength + i] = input[inputOffset + i]
-            }
+            buffer.replaceSubrange(bufferLength..<(bufferLength + toCopy),
+                                   with: input[inputOffset..<(inputOffset + toCopy)])
             bufferLength += toCopy
             inputOffset += toCopy
             remaining -= toCopy
@@ -229,9 +234,8 @@ internal struct Blake2Engine<V: Blake2Variant>: Sendable {
         }
 
         if remaining > 0 {
-            for i in 0..<remaining {
-                buffer[i] = input[inputOffset + i]
-            }
+            buffer.replaceSubrange(0..<remaining,
+                                   with: input[inputOffset..<(inputOffset + remaining)])
             bufferLength = remaining
         }
     }
@@ -269,7 +273,8 @@ internal struct Blake2Engine<V: Blake2Variant>: Sendable {
     ) {
         blake2Compress(
             V.self, h: &h, block: block, blockOffset: blockOffset,
-            t0: t0, t1: t1, lastBlock: lastBlock, lastNode: lastNode
+            t0: t0, t1: t1, lastBlock: lastBlock, lastNode: lastNode,
+            v: &v, m: &m
         )
     }
 }

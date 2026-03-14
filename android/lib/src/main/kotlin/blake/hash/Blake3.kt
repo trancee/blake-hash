@@ -42,7 +42,8 @@ public class Blake3 private constructor() {
         private val baseFlags: Int
     ) {
         private var chunkState = Blake3Core.ChunkState(key, 0, baseFlags)
-        private val cvStack = ArrayList<IntArray>(54) // max tree depth
+        private val cvStack = Array(54) { IntArray(8) } // max tree depth
+        private var cvStackLen = 0
         private var chunkCount: Long = 0
 
         /** Hash mode. */
@@ -107,12 +108,17 @@ public class Blake3 private constructor() {
          * bit L of the total chunk count is 0 (the bit just cleared).
          */
         private fun addChunkCv(cv: IntArray) {
-            cvStack.add(cv)
+            cv.copyInto(cvStack[cvStackLen])
+            cvStackLen++
             var totalChunks = chunkCount
-            while (cvStack.size > 1 && (totalChunks and 1L) == 0L) {
-                val right = cvStack.removeAt(cvStack.lastIndex)
-                val left = cvStack.removeAt(cvStack.lastIndex)
-                cvStack.add(Blake3Core.parentChainingValue(left, right, key, baseFlags))
+            while (cvStackLen > 1 && (totalChunks and 1L) == 0L) {
+                cvStackLen--
+                val right = cvStack[cvStackLen]
+                cvStackLen--
+                val left = cvStack[cvStackLen]
+                val parent = Blake3Core.parentChainingValue(left, right, key, baseFlags)
+                parent.copyInto(cvStack[cvStackLen])
+                cvStackLen++
                 totalChunks = totalChunks ushr 1
             }
         }
@@ -123,7 +129,7 @@ public class Blake3 private constructor() {
             var cv = output.chainingValueWords()
 
             // If there are stacked CVs, merge right-to-left
-            var idx = cvStack.lastIndex
+            var idx = cvStackLen - 1
             if (idx < 0) {
                 // Single chunk — it is the root
                 return output
