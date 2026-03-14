@@ -334,6 +334,76 @@ beneficial.
 
 ---
 
+## Safety Analysis — Unsafe Pointer Access (Swift)
+
+The v3 Swift optimizations replace bounds-checked `Array` subscripts with raw
+pointer access via `withUnsafeMutableBufferPointer` / `withUnsafeBufferPointer`.
+This section documents why this is safe despite the absence of runtime bounds
+checks.
+
+### Why out-of-bounds access is structurally impossible
+
+All pointer-indexed arrays have **fixed, spec-defined sizes**:
+
+| Array | Size | Indexed by |
+|-------|------|------------|
+| `h` (state) | 8 words | `0..<8` (constant) |
+| `v` (work vector) | 16 words | `0..<16` (constant), G function args `{0–15}` |
+| `m` (message words) | 16 words | `0..<16` (constant), sigma table values `{0–15}` |
+| sigma / permutation | 10×16 flat | `(round % 10) * 16 + {0..15}` |
+| block buffer | 64 or 128 bytes | `blockOffset + i * wordSize`, bounded by block size |
+
+Every index is either a compile-time constant or derived from a bounded
+calculation. No user input influences index values — only the *data* loaded
+through those indices comes from external input.
+
+### Containment measures
+
+1. **Scoped pointers** — all unsafe access occurs inside `withUnsafe*` closures.
+   Pointers cannot escape to instance state or be stored beyond the closure
+   lifetime.
+
+2. **Internal visibility** — the unsafe functions (`blake2bG`, `blake2sG`,
+   `blake3G`, `blake2bCompressImpl`, `blake2sCompressImpl`,
+   `blake3CompressInto`) are all `private` or `internal`. The public API
+   (`Blake2b`, `Blake2s`, `Blake3`) validates inputs via preconditions before
+   any unsafe code runs.
+
+3. **`min()` guards on copies** — every `copyMemory` call caps `byteCount`
+   with `min()` to prevent overruns (e.g., `min(remaining, V.blockSize -
+   bufferLength)`).
+
+4. **Force-unwrap safety** — `baseAddress!` is used on arrays that are
+   pre-allocated to non-zero fixed sizes, so `baseAddress` is never `nil`.
+
+### Risk summary
+
+| Risk | Severity | Mitigation |
+|------|----------|------------|
+| Out-of-bounds read/write | Low | All indices are constants matching spec-defined array sizes |
+| `baseAddress!` on empty array | Low | Arrays are pre-allocated to fixed non-zero sizes |
+| `loadUnaligned` misuse | None | Correctly used for little-endian word loads |
+| `copyMemory` overrun | Low | `min()` guards cap byte counts at every call site |
+| No compiler bounds-check safety net | Accepted | Tradeoff for ~77% throughput gain in compression |
+
+### Validation
+
+The test suite (83 tests across 11 files) verifies all hash outputs against
+known test vectors from the BLAKE2 RFC and BLAKE3 reference implementation. Any
+pointer arithmetic error would produce incorrect hashes and be caught
+immediately. This is the same assurance model used by production cryptographic
+libraries (libsodium, CryptoKit, BoringSSL).
+
+### Conclusion
+
+Dropping bounds checks in the compression inner loops is a **standard
+optimization for cryptographic hash implementations**. The fixed-size,
+spec-driven nature of BLAKE compression makes out-of-bounds access structurally
+impossible given correct constants. The optimization is safe to use as long as
+the test vector suite continues to pass.
+
+---
+
 ## Methodology
 
 - **Data size:** 1 MB per hash
