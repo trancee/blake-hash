@@ -168,9 +168,16 @@ internal struct Blake3Output {
                 flags: flags | Blake3Constants.ROOT
             )
             let needed = min(64, outputLength - written)
-            let wordCount = (needed + 3) / 4
-            for i in 0..<wordCount {
+            let fullWords = needed / 4
+            let remainder = needed % 4
+            for i in 0..<fullWords {
                 storeLE32(words[i], into: &result, at: written + i * 4)
+            }
+            if remainder > 0 {
+                let w = words[fullWords]
+                for j in 0..<remainder {
+                    result[written + fullWords * 4 + j] = UInt8(truncatingIfNeeded: w >> (j * 8))
+                }
             }
             written += needed
             outputBlockCounter += 1
