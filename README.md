@@ -4,7 +4,7 @@
 
 Zero external dependencies. Covers BLAKE2b, BLAKE2s, BLAKE2bp, BLAKE2sp, and BLAKE3 with all modes: hash, keyed hash (MAC), key derivation (KDF), and extendable output (XOF).
 
-> **Swift 6.1+** · **Kotlin 2.3+** · **JDK 21+** · **iOS 17+ / macOS 14+**
+> **Swift 6.1+** · **Kotlin 2.3+** · **JDK 21+** · **iOS 16+ / macOS 13+**
 
 ---
 
