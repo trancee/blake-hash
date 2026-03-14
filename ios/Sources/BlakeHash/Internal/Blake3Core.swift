@@ -1,5 +1,5 @@
 // BLAKE3 core implementation — compression function, constants, chunk/tree logic.
-// Pure Swift, zero external dependencies.
+// Optimized with unsafe pointer access for performance-critical paths.
 
 // MARK: - Constants
 
@@ -22,75 +22,113 @@ internal enum Blake3Constants {
     static let KEYED_HASH: UInt32 = 16
     static let DERIVE_KEY_CONTEXT: UInt32 = 32
     static let DERIVE_KEY_MATERIAL: UInt32 = 64
-
-    // Pre-computed message word permutations for all 7 rounds
-    static let MSG_PERMUTATION: [[Int]] = [
-        [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
-        [2, 6, 3, 10, 7, 0, 4, 13, 1, 11, 12, 5, 9, 14, 15, 8],
-        [3, 4, 10, 12, 13, 2, 7, 14, 6, 5, 9, 0, 11, 15, 8, 1],
-        [10, 7, 12, 9, 14, 3, 13, 15, 4, 0, 11, 2, 5, 8, 1, 6],
-        [12, 13, 9, 11, 15, 10, 14, 8, 7, 2, 5, 3, 0, 1, 6, 4],
-        [9, 14, 11, 5, 8, 12, 15, 1, 13, 3, 0, 10, 2, 6, 4, 7],
-        [11, 15, 5, 0, 1, 9, 8, 6, 14, 10, 2, 12, 3, 4, 7, 13],
-    ]
 }
 
-// MARK: - Helpers
+// Flattened message word permutation — indexed as blake3PermFlat[round * 16 + i]
+private let blake3PermFlat: [Int] = [
+    0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
+    2, 6, 3, 10, 7, 0, 4, 13, 1, 11, 12, 5, 9, 14, 15, 8,
+    3, 4, 10, 12, 13, 2, 7, 14, 6, 5, 9, 0, 11, 15, 8, 1,
+    10, 7, 12, 9, 14, 3, 13, 15, 4, 0, 11, 2, 5, 8, 1, 6,
+    12, 13, 9, 11, 15, 10, 14, 8, 7, 2, 5, 3, 0, 1, 6, 4,
+    9, 14, 11, 5, 8, 12, 15, 1, 13, 3, 0, 10, 2, 6, 4, 7,
+    11, 15, 5, 0, 1, 9, 8, 6, 14, 10, 2, 12, 3, 4, 7, 13,
+]
 
-extension UInt32 {
-    @inline(__always)
-    internal func rotatedRight(by n: Int) -> UInt32 {
-        (self >> n) | (self << (32 - n))
-    }
-}
+// MARK: - Specialized G Function (UnsafeMutablePointer, hardcoded rotations)
 
 @inline(__always)
-internal func loadLE32(_ bytes: [UInt8], at offset: Int) -> UInt32 {
-    UInt32(bytes[offset])
-        | (UInt32(bytes[offset + 1]) << 8)
-        | (UInt32(bytes[offset + 2]) << 16)
-        | (UInt32(bytes[offset + 3]) << 24)
-}
-
-@inline(__always)
-internal func storeLE32(_ value: UInt32, into bytes: inout [UInt8], at offset: Int) {
-    bytes[offset] = UInt8(truncatingIfNeeded: value)
-    bytes[offset + 1] = UInt8(truncatingIfNeeded: value >> 8)
-    bytes[offset + 2] = UInt8(truncatingIfNeeded: value >> 16)
-    bytes[offset + 3] = UInt8(truncatingIfNeeded: value >> 24)
-}
-
-internal func wordsFromBytes(_ bytes: [UInt8]) -> [UInt32] {
-    var words = [UInt32](repeating: 0, count: bytes.count / 4)
-    for i in 0..<words.count {
-        words[i] = loadLE32(bytes, at: i * 4)
-    }
-    return words
-}
-
-internal func bytesFromWords(_ words: [UInt32]) -> [UInt8] {
-    var bytes = [UInt8](repeating: 0, count: words.count * 4)
-    for i in 0..<words.count {
-        storeLE32(words[i], into: &bytes, at: i * 4)
-    }
-    return bytes
-}
-
-// MARK: - G Function
-
-@inline(__always)
-internal func g(_ v: inout [UInt32], _ a: Int, _ b: Int, _ c: Int, _ d: Int, _ x: UInt32, _ y: UInt32) {
+private func blake3G(
+    _ v: UnsafeMutablePointer<UInt32>,
+    _ a: Int, _ b: Int, _ c: Int, _ d: Int,
+    _ x: UInt32, _ y: UInt32
+) {
     v[a] = v[a] &+ v[b] &+ x
-    v[d] = (v[d] ^ v[a]).rotatedRight(by: 16)
+    var tmp = v[d] ^ v[a]
+    v[d] = (tmp &>> 16) | (tmp &<< 16)
     v[c] = v[c] &+ v[d]
-    v[b] = (v[b] ^ v[c]).rotatedRight(by: 12)
+    tmp = v[b] ^ v[c]
+    v[b] = (tmp &>> 12) | (tmp &<< 20)
     v[a] = v[a] &+ v[b] &+ y
-    v[d] = (v[d] ^ v[a]).rotatedRight(by: 8)
+    tmp = v[d] ^ v[a]
+    v[d] = (tmp &>> 8) | (tmp &<< 24)
     v[c] = v[c] &+ v[d]
-    v[b] = (v[b] ^ v[c]).rotatedRight(by: 7)
+    tmp = v[b] ^ v[c]
+    v[b] = (tmp &>> 7) | (tmp &<< 25)
 }
 
-// MARK: - Compression Function
+// MARK: - Unsafe Compression Core
+
+@inline(__always)
+private func blake3CompressUnsafe(
+    cv: UnsafePointer<UInt32>,
+    m: UnsafePointer<UInt32>,
+    counter: UInt64,
+    blockLen: UInt32,
+    flags: UInt32,
+    out: UnsafeMutablePointer<UInt32>
+) {
+    out[0] = cv[0]; out[1] = cv[1]; out[2] = cv[2]; out[3] = cv[3]
+    out[4] = cv[4]; out[5] = cv[5]; out[6] = cv[6]; out[7] = cv[7]
+    out[8]  = 0x6A09E667; out[9]  = 0xBB67AE85
+    out[10] = 0x3C6EF372; out[11] = 0xA54FF53A
+    out[12] = UInt32(truncatingIfNeeded: counter)
+    out[13] = UInt32(truncatingIfNeeded: counter >> 32)
+    out[14] = blockLen
+    out[15] = flags
+
+    blake3PermFlat.withUnsafeBufferPointer { permBuf in
+        let pp = permBuf.baseAddress!
+        for round in 0..<7 {
+            let p = pp + round * 16
+            blake3G(out, 0, 4, 8, 12, m[p[0]], m[p[1]])
+            blake3G(out, 1, 5, 9, 13, m[p[2]], m[p[3]])
+            blake3G(out, 2, 6, 10, 14, m[p[4]], m[p[5]])
+            blake3G(out, 3, 7, 11, 15, m[p[6]], m[p[7]])
+            blake3G(out, 0, 5, 10, 15, m[p[8]], m[p[9]])
+            blake3G(out, 1, 6, 11, 12, m[p[10]], m[p[11]])
+            blake3G(out, 2, 7, 8, 13, m[p[12]], m[p[13]])
+            blake3G(out, 3, 4, 9, 14, m[p[14]], m[p[15]])
+        }
+    }
+
+    let v8 = out[8]; let v9 = out[9]; let v10 = out[10]; let v11 = out[11]
+    let v12 = out[12]; let v13 = out[13]; let v14 = out[14]; let v15 = out[15]
+    out[0] ^= v8;  out[8]  = v8  ^ cv[0]
+    out[1] ^= v9;  out[9]  = v9  ^ cv[1]
+    out[2] ^= v10; out[10] = v10 ^ cv[2]
+    out[3] ^= v11; out[11] = v11 ^ cv[3]
+    out[4] ^= v12; out[12] = v12 ^ cv[4]
+    out[5] ^= v13; out[13] = v13 ^ cv[5]
+    out[6] ^= v14; out[14] = v14 ^ cv[6]
+    out[7] ^= v15; out[15] = v15 ^ cv[7]
+}
+
+// MARK: - Public Compression Function
+
+/// Compression function writing into a pre-allocated output array.
+internal func blake3CompressInto(
+    chainingValue cv: [UInt32],
+    blockWords m: [UInt32],
+    counter: UInt64,
+    blockLen: UInt32,
+    flags: UInt32,
+    out: inout [UInt32]
+) {
+    cv.withUnsafeBufferPointer { cvBuf in
+        m.withUnsafeBufferPointer { mBuf in
+            out.withUnsafeMutableBufferPointer { outBuf in
+                blake3CompressUnsafe(
+                    cv: cvBuf.baseAddress!,
+                    m: mBuf.baseAddress!,
+                    counter: counter,
+                    blockLen: blockLen,
+                    flags: flags,
+                    out: outBuf.baseAddress!)
+            }
+        }
+    }
+}
 
 /// Returns all 16 output words.
 internal func blake3Compress(
@@ -106,49 +144,33 @@ internal func blake3Compress(
     return out
 }
 
-/// Compression function writing into a pre-allocated output array.
-@inline(__always)
-internal func blake3CompressInto(
-    chainingValue cv: [UInt32],
-    blockWords m: [UInt32],
-    counter: UInt64,
-    blockLen: UInt32,
-    flags: UInt32,
-    out: inout [UInt32]
-) {
-    let iv = Blake3Constants.IV
-    // Reuse the output array as working vector
-    out[0] = cv[0]; out[1] = cv[1]; out[2] = cv[2]; out[3] = cv[3]
-    out[4] = cv[4]; out[5] = cv[5]; out[6] = cv[6]; out[7] = cv[7]
-    out[8] = iv[0]; out[9] = iv[1]; out[10] = iv[2]; out[11] = iv[3]
-    out[12] = UInt32(truncatingIfNeeded: counter)
-    out[13] = UInt32(truncatingIfNeeded: counter >> 32)
-    out[14] = blockLen
-    out[15] = flags
+// MARK: - Helpers
 
-    for round in 0..<7 {
-        let perm = Blake3Constants.MSG_PERMUTATION[round]
-        g(&out, 0, 4, 8, 12, m[perm[0]], m[perm[1]])
-        g(&out, 1, 5, 9, 13, m[perm[2]], m[perm[3]])
-        g(&out, 2, 6, 10, 14, m[perm[4]], m[perm[5]])
-        g(&out, 3, 7, 11, 15, m[perm[6]], m[perm[7]])
-        g(&out, 0, 5, 10, 15, m[perm[8]], m[perm[9]])
-        g(&out, 1, 6, 11, 12, m[perm[10]], m[perm[11]])
-        g(&out, 2, 7, 8, 13, m[perm[12]], m[perm[13]])
-        g(&out, 3, 4, 9, 14, m[perm[14]], m[perm[15]])
+internal func wordsFromBytes(_ bytes: [UInt8]) -> [UInt32] {
+    let wordCount = bytes.count / 4
+    var words = [UInt32](repeating: 0, count: wordCount)
+    bytes.withUnsafeBytes { rawBuf in
+        words.withUnsafeMutableBufferPointer { wordsBuf in
+            let wp = wordsBuf.baseAddress!
+            let bp = rawBuf.baseAddress!
+            for i in 0..<wordCount {
+                wp[i] = UInt32(littleEndian: bp.loadUnaligned(
+                    fromByteOffset: i * 4, as: UInt32.self))
+            }
+        }
     }
+    return words
+}
 
-    // Save v[8..15] before overwriting
-    let v8 = out[8]; let v9 = out[9]; let v10 = out[10]; let v11 = out[11]
-    let v12 = out[12]; let v13 = out[13]; let v14 = out[14]; let v15 = out[15]
-    out[0] = out[0] ^ v8;  out[8]  = v8  ^ cv[0]
-    out[1] = out[1] ^ v9;  out[9]  = v9  ^ cv[1]
-    out[2] = out[2] ^ v10; out[10] = v10 ^ cv[2]
-    out[3] = out[3] ^ v11; out[11] = v11 ^ cv[3]
-    out[4] = out[4] ^ v12; out[12] = v12 ^ cv[4]
-    out[5] = out[5] ^ v13; out[13] = v13 ^ cv[5]
-    out[6] = out[6] ^ v14; out[14] = v14 ^ cv[6]
-    out[7] = out[7] ^ v15; out[15] = v15 ^ cv[7]
+internal func bytesFromWords(_ words: [UInt32]) -> [UInt8] {
+    var bytes = [UInt8](repeating: 0, count: words.count * 4)
+    words.withUnsafeBytes { wordsRaw in
+        bytes.withUnsafeMutableBytes { bytesRaw in
+            bytesRaw.baseAddress!.copyMemory(
+                from: wordsRaw.baseAddress!, byteCount: words.count * 4)
+        }
+    }
+    return bytes
 }
 
 // MARK: - Output (for root finalization / XOF)
@@ -189,15 +211,11 @@ internal struct Blake3Output {
                 out: &compressOut
             )
             let needed = min(64, outputLength - written)
-            let fullWords = needed / 4
-            let remainder = needed % 4
-            for i in 0..<fullWords {
-                storeLE32(compressOut[i], into: &result, at: written + i * 4)
-            }
-            if remainder > 0 {
-                let w = compressOut[fullWords]
-                for j in 0..<remainder {
-                    result[written + fullWords * 4 + j] = UInt8(truncatingIfNeeded: w >> (j * 8))
+            // Direct memory copy (little-endian) for output bytes
+            compressOut.withUnsafeBytes { outRaw in
+                result.withUnsafeMutableBytes { resultRaw in
+                    (resultRaw.baseAddress! + written).copyMemory(
+                        from: outRaw.baseAddress!, byteCount: needed)
                 }
             }
             written += needed
@@ -217,7 +235,6 @@ internal struct Blake3ChunkState {
     var blocksCompressed: Int
     var flags: UInt32
 
-    // Pre-allocated working arrays
     private var blockWords: [UInt32]
     private var compressOut: [UInt32]
 
@@ -246,15 +263,26 @@ internal struct Blake3ChunkState {
         let end = inputOffset + length
         while offset < end {
             if blockLen == Blake3Constants.BLOCK_LEN {
-                for i in 0..<16 {
-                    blockWords[i] = loadLE32(block, at: i * 4)
+                // Load block words using unaligned loads
+                block.withUnsafeBytes { blockRaw in
+                    blockWords.withUnsafeMutableBufferPointer { wBuf in
+                        let wp = wBuf.baseAddress!
+                        let bp = blockRaw.baseAddress!
+                        for i in 0..<16 {
+                            wp[i] = UInt32(littleEndian: bp.loadUnaligned(
+                                fromByteOffset: i * 4, as: UInt32.self))
+                        }
+                    }
                 }
+                // Capture values needed inside the closure to avoid exclusivity conflicts
+                let compressFlags = flags | startFlag
+                let counter = chunkCounter
                 blake3CompressInto(
                     chainingValue: chainingValue,
                     blockWords: blockWords,
-                    counter: chunkCounter,
+                    counter: counter,
                     blockLen: UInt32(Blake3Constants.BLOCK_LEN),
-                    flags: flags | startFlag,
+                    flags: compressFlags,
                     out: &compressOut
                 )
                 for i in 0..<8 { chainingValue[i] = compressOut[i] }
@@ -265,8 +293,13 @@ internal struct Blake3ChunkState {
 
             let want = Blake3Constants.BLOCK_LEN - blockLen
             let take = min(want, end - offset)
-            block.replaceSubrange(blockLen..<(blockLen + take),
-                                  with: input[offset..<(offset + take)])
+            let bl = blockLen
+            block.withUnsafeMutableBytes { bufRaw in
+                input.withUnsafeBytes { inputRaw in
+                    (bufRaw.baseAddress! + bl).copyMemory(
+                        from: inputRaw.baseAddress! + offset, byteCount: take)
+                }
+            }
             blockLen += take
             offset += take
         }
@@ -274,18 +307,25 @@ internal struct Blake3ChunkState {
 
     func output() -> Blake3Output {
         var words = [UInt32](repeating: 0, count: 16)
-        let fullWords = blockLen / 4
-        for i in 0..<fullWords {
-            words[i] = loadLE32(block, at: i * 4)
-        }
-        let remainder = blockLen % 4
-        if remainder > 0 {
-            var w: UInt32 = 0
-            let base = fullWords * 4
-            for i in 0..<remainder {
-                w |= UInt32(block[base + i]) << (i * 8)
+        block.withUnsafeBytes { blockRaw in
+            words.withUnsafeMutableBufferPointer { wBuf in
+                let wp = wBuf.baseAddress!
+                let bp = blockRaw.baseAddress!
+                let fullWords = blockLen / 4
+                for i in 0..<fullWords {
+                    wp[i] = UInt32(littleEndian: bp.loadUnaligned(
+                        fromByteOffset: i * 4, as: UInt32.self))
+                }
+                let remainder = blockLen % 4
+                if remainder > 0 {
+                    var w: UInt32 = 0
+                    let base = fullWords * 4
+                    for i in 0..<remainder {
+                        w |= UInt32(bp.load(fromByteOffset: base + i, as: UInt8.self)) << (i * 8)
+                    }
+                    wp[fullWords] = w
+                }
             }
-            words[fullWords] = w
         }
         var blockFlags = flags | startFlag
         blockFlags |= Blake3Constants.CHUNK_END
@@ -352,11 +392,6 @@ internal struct Blake3Engine {
         self.cvStackLen = 0
     }
 
-    /// Count of complete chunks so far.
-    private var totalChunks: UInt64 {
-        chunkState.chunkCounter
-    }
-
     private mutating func pushCV(_ cv: [UInt32]) {
         if cvStackLen < cvStack.count {
             cvStack[cvStackLen] = cv
@@ -371,10 +406,8 @@ internal struct Blake3Engine {
         return cvStack[cvStackLen]
     }
 
-    /// After completing a chunk, merge as many parent nodes as dictated by the chunk count.
     private mutating func addChunkChainingValue(_ newCV: [UInt32], totalChunks: UInt64) {
         var cv = newCV
-        // The number of trailing 1-bits in totalChunks tells us how many merges to do
         var count = totalChunks
         while count & 1 != 0 {
             let leftCV = popCV()
@@ -392,28 +425,23 @@ internal struct Blake3Engine {
     mutating func update(_ input: [UInt8]) {
         var offset = 0
         while offset < input.count {
-            // If the current chunk is complete, finalize it
             if chunkState.totalLen == Blake3Constants.CHUNK_LEN {
                 let chunkCV = chunkState.output().chainingValue()
                 let completedChunkIndex = chunkState.chunkCounter
-                let nextChunkCounter = completedChunkIndex + 1
                 addChunkChainingValue(chunkCV, totalChunks: completedChunkIndex)
-                chunkState = Blake3ChunkState(key: key, chunkCounter: nextChunkCounter, flags: flags)
+                chunkState = Blake3ChunkState(key: key, chunkCounter: completedChunkIndex + 1, flags: flags)
             }
 
             let want = Blake3Constants.CHUNK_LEN - chunkState.totalLen
             let take = min(want, input.count - offset)
-            // Pass the full array with offset/length to avoid slice-to-array copy
             chunkState.update(input, offset: offset, length: take)
             offset += take
         }
     }
 
     func finalOutput() -> Blake3Output {
-        // Finalize the current (possibly partial) chunk
         var output = chunkState.output()
 
-        // Merge with stacked chaining values right-to-left
         var parentNodesRemaining = cvStackLen
         while parentNodesRemaining > 0 {
             parentNodesRemaining -= 1

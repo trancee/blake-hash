@@ -59,7 +59,7 @@ jobs:
         id: bench
         working-directory: ios
         run: |
-          swift test --filter Bench 2>&1 | tee bench-output.txt
+          swift test -c release --filter Bench 2>&1 | tee bench-output.txt
           grep '^BENCH' bench-output.txt > bench-results.txt || true
 
       - name: Generate summary

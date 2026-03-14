@@ -55,7 +55,7 @@ if $RUN_BENCH; then
     bold " Benchmarks — iOS (Swift)"
     bold "═══════════════════════════════════════════════════════"
     cd "$REPO_ROOT/ios"
-    swift test --filter Bench --quiet
+    swift test -c release --filter Bench --quiet
 
     bold ""
     bold "✅  Benchmarks complete."

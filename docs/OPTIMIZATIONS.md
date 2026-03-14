@@ -9,14 +9,18 @@ before/after throughput measurements on 1 MB payloads.
 
 ### Swift (release build, Apple Silicon)
 
-| Algorithm   | Before (MB/s) | After (MB/s) | Change  |
-|-------------|---------------|--------------|---------|
-| BLAKE2b-512 | 472.63        | 724.90       | **+53.4%** |
-| BLAKE2b-256 | 476.41        | 727.57       | **+52.7%** |
-| BLAKE2s-256 | 271.64        | 476.53       | **+75.4%** |
-| BLAKE2bp    | 442.98        | 649.39       | **+46.6%** |
-| BLAKE2sp    | 253.49        | 426.78       | **+68.4%** |
-| BLAKE3      | 226.51        | 466.86       | **+106.1%** |
+| Algorithm   | v1 (MB/s) | v2 (MB/s) | v3 (MB/s)  | v2→v3 Change |
+|-------------|-----------|-----------|------------|--------------|
+| BLAKE2b-512 | 472.63    | 724.90    | **1284.05** | **+77.1%**   |
+| BLAKE2b-256 | 476.41    | 727.57    | **1288.19** | **+77.1%**   |
+| BLAKE2s-256 | 271.64    | 476.53    | **777.83**  | **+63.2%**   |
+| BLAKE2bp    | 442.98    | 649.39    | **1207.40** | **+85.9%**   |
+| BLAKE2sp    | 253.49    | 426.78    | **750.37**  | **+75.8%**   |
+| BLAKE3      | 226.51    | 466.86    | **640.14**  | **+37.1%**   |
+
+> **v1:** Initial implementation (heap arrays, generic G function)
+> **v2:** Pre-allocated working arrays, in-place compression
+> **v3:** Unsafe pointer access, specialized G functions, `loadUnaligned` LE loading
 
 ### Kotlin/JVM (HotSpot, Apple Silicon)
 
@@ -159,6 +163,151 @@ cv.copyInto(cvStack[cvStackLen]); cvStackLen++
 
 ---
 
+## v3 Optimizations — Unsafe Pointer Access (Swift)
+
+### 7. Unsafe pointer–based compression functions
+
+**Files:** `Blake2Core.swift`, `Blake3Core.swift`
+
+The compression function is the hottest code path — called ~8,000 times for a
+1 MB BLAKE2b hash, with each call performing hundreds of array element
+accesses. Swift's `Array` subscript inserts bounds checks on every access.
+Wrapping the entire compression body in `withUnsafeMutableBufferPointer` /
+`withUnsafeBufferPointer` eliminates all bounds checking from the inner loops:
+
+```swift
+// Before — every v[i], m[i], h[i] is bounds-checked
+for round in 0..<12 {
+    let s = blake2Sigma[round % 10]
+    blake2G(&v, 0, 4, 8, 12, m[s[0]], m[s[1]], r1: V.r1, ...)
+}
+
+// After — raw pointer access, zero bounds checks
+h.withUnsafeMutableBufferPointer { hBuf in
+    v.withUnsafeMutableBufferPointer { vBuf in
+        m.withUnsafeBufferPointer { mBuf in
+            let hp = hBuf.baseAddress!
+            let vp = vBuf.baseAddress!
+            let mp = mBuf.baseAddress!
+            for round in 0..<12 {
+                let s = sp + (round % 10) * 16
+                blake2bG(vp, 0, 4, 8, 12, mp[s[0]], mp[s[1]])
+                // ...
+            }
+            for i in 0..<8 { hp[i] ^= vp[i] ^ vp[i + 8] }
+        }
+    }
+}
+```
+
+### 8. Specialized G mixing functions with hardcoded rotations
+
+**Files:** `Blake2Core.swift`, `Blake3Core.swift`
+
+The original generic `blake2G<W>` function passed rotation constants as runtime
+parameters via the `Blake2Variant` protocol. This prevented the compiler from
+emitting single-instruction rotates. Replaced with dedicated functions per
+variant that use `UnsafeMutablePointer` and compile-time constant rotations:
+
+```swift
+// Before — generic, runtime rotation amounts, Array bounds checks
+func blake2G<W: FixedWidthInteger & UnsignedInteger>(
+    _ v: inout [W], _ a: Int, _ b: Int, _ c: Int, _ d: Int,
+    _ x: W, _ y: W, r1: Int, r2: Int, r3: Int, r4: Int)
+
+// After — concrete type, constant rotations, raw pointer access
+func blake2bG(
+    _ v: UnsafeMutablePointer<UInt64>,
+    _ a: Int, _ b: Int, _ c: Int, _ d: Int,
+    _ x: UInt64, _ y: UInt64) {
+    v[a] = v[a] &+ v[b] &+ x
+    var tmp = v[d] ^ v[a]
+    v[d] = (tmp &>> 32) | (tmp &<< 32)  // constant → single ROR instruction
+    // ...
+}
+```
+
+Three specialized G functions: `blake2bG` (UInt64, rotations 32/24/16/63),
+`blake2sG` (UInt32, rotations 16/12/8/7), and `blake3G` (UInt32, rotations
+16/12/8/7). The `Blake2Variant` protocol now includes a `compress` static
+method so the generic `Blake2Engine` dispatches to the correct specialized
+implementation.
+
+### 9. Single-instruction LE word loading via `loadUnaligned`
+
+**Files:** `Blake2Core.swift`, `Blake3Core.swift`
+
+The original `blake2LoadLE<W>` used a generic byte-by-byte loop — 8 iterations
+with 8 bounds-checked array accesses for each UInt64 word. Replaced with
+`UnsafeRawPointer.loadUnaligned(as:)` which compiles to a single `LDR`
+instruction on ARM64:
+
+```swift
+// Before — 8 iterations, 8 bounds checks per word
+func blake2LoadLE<W: FixedWidthInteger>(_ bytes: [UInt8], offset: Int) -> W {
+    var value = W.zero
+    for i in 0..<(W.bitWidth / 8) {
+        value |= W(truncatingIfNeeded: bytes[offset + i]) &<< (i * 8)
+    }
+    return value
+}
+
+// After — single unaligned load instruction
+mp[i] = UInt64(littleEndian:
+    bp.loadUnaligned(fromByteOffset: blockOffset + i * 8, as: UInt64.self))
+```
+
+`UInt64(littleEndian:)` is a no-op on little-endian platforms (all Apple
+hardware). This alone eliminates ~128 bounds-checked byte reads per BLAKE2b
+compression call.
+
+### 10. Flattened permutation tables
+
+**Files:** `Blake2Core.swift`, `Blake3Core.swift`
+
+The SIGMA / MSG_PERMUTATION tables were stored as `[[Int]]` (array of arrays).
+Each access involved two levels of indirection: outer array bounds check →
+inner array reference → inner array bounds check → element. Flattened to a
+single `[Int]` indexed as `sigma[round * 16 + i]`:
+
+```swift
+// Before — nested arrays, 2 levels of indirection
+let blake2Sigma: [[Int]] = [[ 0, 1, 2, ...], [14, 10, 4, ...], ...]
+let s = blake2Sigma[round % 10]  // inner array lookup
+blake2G(..., m[s[0]], m[s[1]])   // element lookup
+
+// After — flat array, single level via unsafe pointer
+let blake2SigmaFlat: [Int] = [0, 1, 2, ..., 14, 10, 4, ..., ...]
+let s = sp + (round % 10) * 16   // pointer arithmetic
+blake2bG(..., mp[s[0]], mp[s[1]])
+```
+
+### 11. Pointer-based buffer copies
+
+**Files:** `Blake2Core.swift`, `Blake3Core.swift`
+
+Replaced `Array.replaceSubrange` and byte-loop copies with direct
+`UnsafeRawPointer.copyMemory` for buffer operations:
+
+```swift
+// Before
+buffer.replaceSubrange(bufferLength..<(bufferLength + toCopy),
+                       with: input[inputOffset..<(inputOffset + toCopy)])
+
+// After
+buffer.withUnsafeMutableBytes { bufRaw in
+    input.withUnsafeBytes { inputRaw in
+        (bufRaw.baseAddress! + bl).copyMemory(
+            from: inputRaw.baseAddress! + inputOffset, byteCount: toCopy)
+    }
+}
+```
+
+Also applied to `finalize()` output conversion — the hash state is now copied
+directly to bytes via `copyMemory` instead of per-word `blake2StoreLE` calls.
+
+---
+
 ## Why Kotlin Shows Less Improvement
 
 HotSpot JVM's C2 JIT compiler applies **escape analysis** to local array
@@ -191,4 +340,4 @@ beneficial.
 - **Kotlin:** 50 warm-up iterations, 200 timed iterations (JUnit + Gradle)
 - **Swift:** 20 warm-up iterations, 100 timed iterations (Swift Testing, release build)
 - **Hardware:** Apple Silicon (arm64)
-- **All tests pass** after optimization (77 Swift tests, full Kotlin suite)
+- **All tests pass** after optimization (83 Swift tests, full Kotlin suite)
