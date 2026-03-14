@@ -75,7 +75,7 @@ jobs:
           OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
           OSSRH_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
         run: |
-          BUNDLE="ch.trancee-blake-hash-${{ steps.version.outputs.VERSION }}.zip"
+          BUNDLE="ch.trancee-blake-hash-${{ steps.version.outputs.VERSION }}"
           zip -r "/tmp/${BUNDLE}" .
           STATUS=$(curl -s -o /tmp/response.json -w "%{http_code}" \
             -u "${OSSRH_USERNAME}:${OSSRH_PASSWORD}" \
