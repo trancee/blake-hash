@@ -40,7 +40,7 @@ repositories {
 }
 
 dependencies {
-    implementation("ch.trancee:blake-hash:1.0.0")
+    implementation("ch.trancee:blake-hash:1.0.3")
 }
 ```
 
@@ -52,7 +52,7 @@ Or in `Package.swift`:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/trancee/blake-hash.git", from: "1.0.0")
+    .package(url: "https://github.com/trancee/blake-hash.git", from: "1.0.3")
 ]
 ```
 
