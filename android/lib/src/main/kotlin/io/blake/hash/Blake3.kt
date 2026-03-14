@@ -1,0 +1,142 @@
+package io.blake.hash
+
+import io.blake.hash.internal.Blake3Core
+import io.blake.hash.internal.Blake3Core.CHUNK_LEN
+import io.blake.hash.internal.Blake3Core.DERIVE_KEY_CONTEXT
+import io.blake.hash.internal.Blake3Core.DERIVE_KEY_MATERIAL
+import io.blake.hash.internal.Blake3Core.IV
+import io.blake.hash.internal.Blake3Core.KEYED_HASH
+import io.blake.hash.internal.Blake3Core.KEY_LEN
+import io.blake.hash.internal.Blake3Core.OUT_LEN
+
+/**
+ * BLAKE3 cryptographic hash function.
+ *
+ * Supports hash, keyed hash (MAC/PRF), and key derivation modes,
+ * with extendable output (XOF).
+ */
+public class Blake3 private constructor() {
+
+    public companion object {
+        /** Hash mode — returns 32-byte digest. */
+        public fun hash(input: ByteArray): ByteArray {
+            return Hasher().update(input).finalize()
+        }
+
+        /** Keyed hash mode (MAC/PRF) — key must be exactly 32 bytes. */
+        public fun keyedHash(key: ByteArray, input: ByteArray): ByteArray {
+            return Hasher(key).update(input).finalize()
+        }
+
+        /** Key derivation mode — returns 32-byte derived key. */
+        public fun deriveKey(context: String, keyMaterial: ByteArray): ByteArray {
+            return Hasher.deriveKey(context).update(keyMaterial).finalize()
+        }
+    }
+
+    /**
+     * Incremental BLAKE3 hasher supporting streaming updates and XOF output.
+     */
+    public class Hasher private constructor(
+        private val key: IntArray,
+        private val baseFlags: Int
+    ) {
+        private var chunkState = Blake3Core.ChunkState(key, 0, baseFlags)
+        private val cvStack = ArrayList<IntArray>(54) // max tree depth
+        private var chunkCount: Long = 0
+
+        /** Hash mode. */
+        public constructor() : this(IV.copyOf(), 0)
+
+        /** Keyed hash mode — key must be exactly 32 bytes. */
+        public constructor(key: ByteArray) : this(keyWords(key), KEYED_HASH)
+
+        public companion object {
+            /** Create a derive_key hasher (phase 2). */
+            public fun deriveKey(context: String): Hasher {
+                val contextBytes = context.encodeToByteArray()
+                val contextHasher = Hasher(IV.copyOf(), DERIVE_KEY_CONTEXT)
+                contextHasher.update(contextBytes)
+                val contextKey = contextHasher.rootOutput().rootChainingValue()
+                return Hasher(contextKey, DERIVE_KEY_MATERIAL)
+            }
+
+            private fun keyWords(key: ByteArray): IntArray {
+                require(key.size == KEY_LEN) { "Key must be exactly $KEY_LEN bytes" }
+                return IntArray(8) { Blake3Core.leToInt(key, it * 4) }
+            }
+        }
+
+        public fun update(input: ByteArray): Hasher = update(input, 0, input.size)
+
+        public fun update(input: ByteArray, offset: Int, length: Int): Hasher {
+            var pos = offset
+            var remaining = length
+            while (remaining > 0) {
+                if (chunkState.isComplete) {
+                    completeChunk()
+                }
+                val take = minOf(CHUNK_LEN - chunkState.bytesConsumed, remaining)
+                chunkState.update(input, pos, take)
+                pos += take
+                remaining -= take
+            }
+            return this
+        }
+
+        /** Finalize with default 32-byte output. */
+        public fun finalize(): ByteArray = finalizeXof(OUT_LEN)
+
+        /** Finalize with arbitrary output length (XOF). */
+        public fun finalizeXof(outputLength: Int): ByteArray {
+            return rootOutput().rootOutputBytes(outputLength)
+        }
+
+        // ---- Internal tree management ----
+
+        private fun completeChunk() {
+            val chunkCv = chunkState.output().chainingValueWords()
+            chunkCount++
+            addChunkCv(chunkCv)
+            chunkState = Blake3Core.ChunkState(key, chunkCount, baseFlags)
+        }
+
+        /**
+         * After pushing a chunk's chaining value, merge adjacent pairs that
+         * form complete subtrees. A complete subtree at level L exists when
+         * bit L of the total chunk count is 0 (the bit just cleared).
+         */
+        private fun addChunkCv(cv: IntArray) {
+            cvStack.add(cv)
+            var totalChunks = chunkCount
+            while (cvStack.size > 1 && (totalChunks and 1L) == 0L) {
+                val right = cvStack.removeAt(cvStack.lastIndex)
+                val left = cvStack.removeAt(cvStack.lastIndex)
+                cvStack.add(Blake3Core.parentChainingValue(left, right, key, baseFlags))
+                totalChunks = totalChunks ushr 1
+            }
+        }
+
+        private fun rootOutput(): Blake3Core.Output {
+            // Finalize the current (possibly partial) chunk
+            var output = chunkState.output()
+            var cv = output.chainingValueWords()
+
+            // If there are stacked CVs, merge right-to-left
+            var idx = cvStack.lastIndex
+            if (idx < 0) {
+                // Single chunk — it is the root
+                return output
+            }
+
+            // The current chunk is the rightmost child
+            while (idx > 0) {
+                cv = Blake3Core.parentChainingValue(cvStack[idx], cv, key, baseFlags)
+                idx--
+            }
+
+            // Last merge gets ROOT flag via parentOutput
+            return Blake3Core.parentOutput(cvStack[0], cv, key, baseFlags)
+        }
+    }
+}
