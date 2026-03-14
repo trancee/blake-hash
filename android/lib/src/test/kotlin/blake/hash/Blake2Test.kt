@@ -1,4 +1,4 @@
-package io.blake.hash
+package blake.hash
 
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Assertions.*

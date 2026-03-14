@@ -1,22 +1,22 @@
-package io.blake.hash
+package blake.hash
 
 /**
- * BLAKE2sp – 8-way parallel BLAKE2s.
+ * BLAKE2bp – 4-way parallel BLAKE2b.
  *
- * Produces a 32-byte digest. Input is distributed across 8 leaf BLAKE2s
- * instances in round-robin 64-byte blocks; the 8 leaf digests are then
- * hashed by a single root BLAKE2s to produce the final output.
+ * Produces a 64-byte digest. Input is distributed across 4 leaf BLAKE2b
+ * instances in round-robin 128-byte blocks; the 4 leaf digests are then
+ * hashed by a single root BLAKE2b to produce the final output.
  */
-public class Blake2sp private constructor() {
+public class Blake2bp private constructor() {
 
     public companion object {
-        private const val PARALLELISM = 8
-        private const val BLOCK_SIZE = Blake2sEngine.BLOCK_SIZE       // 64
-        private const val DIGEST_LENGTH = Blake2sEngine.MAX_DIGEST    // 32
+        private const val PARALLELISM = 4
+        private const val BLOCK_SIZE = Blake2bEngine.BLOCK_SIZE       // 128
+        private const val DIGEST_LENGTH = Blake2bEngine.MAX_DIGEST    // 64
         private const val SUPERBLOCK = PARALLELISM * BLOCK_SIZE       // 512
 
         /**
-         * One-shot hash: returns the 32-byte BLAKE2sp digest of [input].
+         * One-shot hash: returns the 64-byte BLAKE2bp digest of [input].
          */
         public fun hash(
             input: ByteArray,
@@ -29,13 +29,13 @@ public class Blake2sp private constructor() {
     }
 
     /**
-     * Incremental BLAKE2sp hasher for streaming data.
+     * Incremental BLAKE2bp hasher for streaming data.
      */
     public class Hasher @JvmOverloads public constructor(
         key: ByteArray = ByteArray(0)
     ) {
-        private val leaves: Array<Blake2sEngine>
-        private val root: Blake2sEngine
+        private val leaves: Array<Blake2bEngine>
+        private val root: Blake2bEngine
         private val buf = ByteArray(SUPERBLOCK)
         private var bufLen = 0
 
@@ -43,7 +43,7 @@ public class Blake2sp private constructor() {
             val keyLen = key.size
 
             // Root first (reference order)
-            root = Blake2sEngine(
+            root = Blake2bEngine(
                 digestLength = DIGEST_LENGTH,
                 fanout = PARALLELISM,
                 depth = 2,
@@ -54,9 +54,9 @@ public class Blake2sp private constructor() {
                 paramKeyLength = keyLen
             )
 
-            // Create 8 leaf engines (node_offset = 0..7)
+            // Create 4 leaf engines (node_offset = 0..3)
             leaves = Array(PARALLELISM) { i ->
-                Blake2sEngine(
+                Blake2bEngine(
                     digestLength = DIGEST_LENGTH,
                     fanout = PARALLELISM,
                     depth = 2,
@@ -72,7 +72,7 @@ public class Blake2sp private constructor() {
             root.lastNode = true
             leaves[PARALLELISM - 1].lastNode = true
 
-            // Feed padded key block to each leaf (bypassing the sp-level buffer)
+            // Feed padded key block to each leaf (bypassing the bp-level buffer)
             if (key.isNotEmpty()) {
                 val keyBlock = ByteArray(BLOCK_SIZE)
                 key.copyInto(keyBlock)
@@ -119,6 +119,7 @@ public class Blake2sp private constructor() {
         }
 
         public fun finalize(): ByteArray {
+            // Distribute remaining buffered data to leaves
             for (i in 0 until PARALLELISM) {
                 val start = i * BLOCK_SIZE
                 if (bufLen > start) {
@@ -127,6 +128,7 @@ public class Blake2sp private constructor() {
                 }
             }
 
+            // Finalize all leaves, feed digests to root
             for (leaf in leaves) {
                 root.update(leaf.finalize(), 0, DIGEST_LENGTH)
             }

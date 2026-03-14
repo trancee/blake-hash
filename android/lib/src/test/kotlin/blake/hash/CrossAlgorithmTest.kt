@@ -1,4 +1,4 @@
-package io.blake.hash
+package blake.hash
 
 import kotlin.test.Test
 import kotlin.test.assertEquals

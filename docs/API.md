@@ -3,7 +3,7 @@
 Complete API reference for **blake-hash** covering both Kotlin (Android) and Swift (iOS).
 
 Package / module:
-- **Kotlin:** `io.blake.hash`
+- **Kotlin:** `blake.hash`
 - **Swift:** `BlakeHash`
 
 ---

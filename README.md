@@ -33,7 +33,7 @@ Zero external dependencies. Covers BLAKE2b, BLAKE2s, BLAKE2bp, BLAKE2sp, and BLA
 
 ### Android (Gradle — Kotlin DSL)
 
-Add the library module to your project, or copy the source files under `io.blake.hash` into your app:
+Add the library module to your project, or copy the source files under `blake.hash` into your app:
 
 ```kotlin
 // settings.gradle.kts
@@ -69,8 +69,8 @@ import BlakeHash
 ### Kotlin
 
 ```kotlin
-import io.blake.hash.Blake2b
-import io.blake.hash.Blake3
+import blake.hash.Blake2b
+import blake.hash.Blake3
 
 // BLAKE2b — one-shot hash
 val digest = Blake2b.hash("Hello".toByteArray())

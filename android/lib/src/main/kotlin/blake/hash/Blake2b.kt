@@ -1,6 +1,6 @@
-package io.blake.hash
+package blake.hash
 
-import io.blake.hash.internal.*
+import blake.hash.internal.*
 
 /**
  * BLAKE2b cryptographic hash function.

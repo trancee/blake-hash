@@ -1,4 +1,4 @@
-package io.blake.hash.internal
+package blake.hash.internal
 
 // BLAKE3 constants and core operations.
 

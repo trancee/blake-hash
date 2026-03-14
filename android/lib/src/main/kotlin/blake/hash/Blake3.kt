@@ -1,13 +1,13 @@
-package io.blake.hash
+package blake.hash
 
-import io.blake.hash.internal.Blake3Core
-import io.blake.hash.internal.Blake3Core.CHUNK_LEN
-import io.blake.hash.internal.Blake3Core.DERIVE_KEY_CONTEXT
-import io.blake.hash.internal.Blake3Core.DERIVE_KEY_MATERIAL
-import io.blake.hash.internal.Blake3Core.IV
-import io.blake.hash.internal.Blake3Core.KEYED_HASH
-import io.blake.hash.internal.Blake3Core.KEY_LEN
-import io.blake.hash.internal.Blake3Core.OUT_LEN
+import blake.hash.internal.Blake3Core
+import blake.hash.internal.Blake3Core.CHUNK_LEN
+import blake.hash.internal.Blake3Core.DERIVE_KEY_CONTEXT
+import blake.hash.internal.Blake3Core.DERIVE_KEY_MATERIAL
+import blake.hash.internal.Blake3Core.IV
+import blake.hash.internal.Blake3Core.KEYED_HASH
+import blake.hash.internal.Blake3Core.KEY_LEN
+import blake.hash.internal.Blake3Core.OUT_LEN
 
 /**
  * BLAKE3 cryptographic hash function.
