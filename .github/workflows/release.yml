@@ -75,10 +75,11 @@ jobs:
           OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
           OSSRH_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
         run: |
-          zip -r /tmp/bundle.zip .
+          BUNDLE="ch.trancee-blake-hash-${{ steps.version.outputs.VERSION }}.zip"
+          zip -r "/tmp/${BUNDLE}" .
           STATUS=$(curl -s -o /tmp/response.json -w "%{http_code}" \
             -u "${OSSRH_USERNAME}:${OSSRH_PASSWORD}" \
-            -F "bundle=@/tmp/bundle.zip" \
+            -F "bundle=@/tmp/${BUNDLE}" \
             "https://central.sonatype.com/api/v1/publisher/upload?publishingType=AUTOMATIC")
           echo "Central Portal response (HTTP ${STATUS}):"
           cat /tmp/response.json
