@@ -45,6 +45,13 @@ fi
 if $RUN_BENCH; then
     bold ""
     bold "═══════════════════════════════════════════════════════"
+    bold " Benchmarks — Android (Kotlin/JVM)"
+    bold "═══════════════════════════════════════════════════════"
+    cd "$REPO_ROOT/android"
+    gradle :lib:benchmark
+
+    bold ""
+    bold "═══════════════════════════════════════════════════════"
     bold " Benchmarks — iOS (Swift)"
     bold "═══════════════════════════════════════════════════════"
     cd "$REPO_ROOT/ios"

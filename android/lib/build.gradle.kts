@@ -22,7 +22,26 @@ dependencies {
 }
 
 tasks.test {
-    useJUnitPlatform()
+    useJUnitPlatform {
+        excludeTags("benchmark")
+    }
+    systemProperty(
+        "test.vectors.dir",
+        rootProject.rootDir.resolve("../test-vectors").absolutePath
+    )
+}
+
+tasks.register<Test>("benchmark") {
+    description = "Runs benchmark tests."
+    group = "verification"
+    useJUnitPlatform {
+        includeTags("benchmark")
+    }
+    testClassesDirs = tasks.test.get().testClassesDirs
+    classpath = tasks.test.get().classpath
+    testLogging {
+        showStandardStreams = true
+    }
     systemProperty(
         "test.vectors.dir",
         rootProject.rootDir.resolve("../test-vectors").absolutePath
