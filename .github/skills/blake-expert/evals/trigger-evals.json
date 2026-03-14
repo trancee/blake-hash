@@ -1,0 +1,82 @@
+[
+  {
+    "query": "I'm building a content-addressable storage system in Rust and need to pick a hash function. My main concern is throughput on large files — we're talking multi-GB blobs. The system runs on x86-64 servers with AVX-512. Currently using SHA-256 but it feels slow.",
+    "should_trigger": true
+  },
+  {
+    "query": "my blake3 derive_key output doesn't match the test vectors. im using the context string \"myapp session tokens\" and passing the salt in the context too. whats wrong?",
+    "should_trigger": true
+  },
+  {
+    "query": "We're using WireGuard in our VPN setup and I need to understand what hash function it uses internally and whether we should worry about its security margin given the reduced round count compared to SHA-3",
+    "should_trigger": true
+  },
+  {
+    "query": "I need to implement `crypto_generichash` from libsodium in a constrained environment that doesn't have libsodium. What's the underlying algorithm and where can I find test vectors to validate my implementation?",
+    "should_trigger": true
+  },
+  {
+    "query": "We're migrating from MD5 checksums to something faster AND cryptographically secure for our CI artifact cache. The files range from 1KB to 5GB. What's the best modern option? I've heard BLAKE3 is good but I'm not sure if it's standardized enough for production use.",
+    "should_trigger": true
+  },
+  {
+    "query": "im getting different output from b2sum and my python hashlib.blake2b for the same file. the b2sum output is 128 hex chars but my python code gives 64 hex chars. is one of them wrong?",
+    "should_trigger": true
+  },
+  {
+    "query": "How do I use BLAKE3 as a KDF to derive multiple subkeys from a single master secret? Specifically I need an encryption key and a MAC key. Can I just take the first 32 bytes for one and the next 32 for the other from the XOF output?",
+    "should_trigger": true
+  },
+  {
+    "query": "I want to add file integrity verification to our download server. Users should be able to verify chunks of a large file as they download it, not just the whole thing at the end. What hash supports this kind of incremental verification?",
+    "should_trigger": true
+  },
+  {
+    "query": "What's the difference between BLAKE2bp and BLAKE2b? My WinRAR is showing BLAKE2sp checksums but when I try to verify with b2sum using -a blake2s it gives a different hash",
+    "should_trigger": true
+  },
+  {
+    "query": "we need to hash passwords for our new user registration system. a colleague suggested BLAKE3 because it's the fastest hash. should we go with that?",
+    "should_trigger": true
+  },
+  {
+    "query": "I need to implement AES-256-GCM encryption in Python for our API. Can you show me how to use the cryptography library to encrypt and decrypt messages with authenticated encryption?",
+    "should_trigger": false
+  },
+  {
+    "query": "How do I set up TLS certificates for my nginx server? I need to get a Let's Encrypt cert and configure HTTPS with HSTS headers",
+    "should_trigger": false
+  },
+  {
+    "query": "Can you help me write a SHA-256 implementation from scratch in C? I want to understand the Merkle-Damgård construction and the compression function internals",
+    "should_trigger": false
+  },
+  {
+    "query": "I'm building a Merkle tree for my blockchain project using Keccak-256. How should I handle odd numbers of leaves and what's the standard way to prevent second preimage attacks on the tree?",
+    "should_trigger": false
+  },
+  {
+    "query": "What's the best way to store passwords in a Django app? I heard bcrypt is good but some people recommend Argon2. Should I use the default PBKDF2 that Django ships with?",
+    "should_trigger": false
+  },
+  {
+    "query": "I need to generate a random 256-bit key for my ChaCha20-Poly1305 encryption. Should I use /dev/urandom or is there a better CSPRNG in Python?",
+    "should_trigger": false
+  },
+  {
+    "query": "We're implementing the Noise protocol framework for our messaging app. I need help understanding the handshake patterns — specifically IK vs XX and when to use each one",
+    "should_trigger": false
+  },
+  {
+    "query": "How do I compute a CRC32 checksum for file integrity in a zip archive? I know it's not cryptographic but I just need basic error detection, not security",
+    "should_trigger": false
+  },
+  {
+    "query": "I'm trying to speed up our Python data pipeline. The bottleneck is hashing large dataframes for caching. Currently using hashlib.sha256 on the serialized bytes. Any faster approach that's still deterministic?",
+    "should_trigger": true
+  },
+  {
+    "query": "My HMAC-SHA256 implementation isn't matching the RFC 4231 test vectors. The inner and outer padding seems right but I think I'm getting the key preprocessing wrong when the key is longer than the block size",
+    "should_trigger": false
+  }
+]

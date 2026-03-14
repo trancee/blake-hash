@@ -1,0 +1,17 @@
+# Build outputs
+android/.gradle/
+android/build/
+android/lib/build/
+android/gradle/
+android/gradlew
+android/gradlew.bat
+ios/.build/
+ios/.swiftpm/
+
+# IDE
+.idea/
+*.xcuserdata/
+*.xcworkspace/
+*.pbxuser
+*.mode*v3
+.DS_Store

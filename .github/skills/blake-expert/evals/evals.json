@@ -1,0 +1,108 @@
+{
+  "skill_name": "blake-expert",
+  "evals": [
+    {
+      "id": 0,
+      "prompt": "I'm implementing BLAKE2b in C from scratch and need test vectors to verify my compression function and final output",
+      "expected_output": "Provides BLAKE2b test vectors for multiple output sizes (256, 384, 512), including empty input, 'abc', keyed mode, and references to test-vectors.md",
+      "files": [],
+      "expectations": [
+        "Provides BLAKE2b-512 empty input vector (786a02f742015903...)",
+        "Provides BLAKE2b-512 'abc' vector (ba80a53f981c4d0d...)",
+        "Mentions keyed hashing mode with vectors",
+        "Provides multiple output sizes including 256-bit",
+        "Provides BLAKE2b-256 empty input vector (0e5751c026e543b2...)",
+        "Provides keyed BLAKE2b vector with specific key (10ebb67700b1868e...)"
+      ]
+    },
+    {
+      "id": 1,
+      "prompt": "I wrote a BLAKE3 hasher in Rust but my output doesn't match for inputs longer than 1024 bytes. Can you give me test vectors around the chunk boundary so I can debug?",
+      "expected_output": "Provides BLAKE3 test vectors at 1023, 1024, and 1025 bytes using the correct i%251 input pattern, explains chunk boundary significance, and ideally includes block boundary vectors too",
+      "files": [],
+      "expectations": [
+        "Provides BLAKE3 hash at 1024 bytes (42214739f095a406...)",
+        "Provides BLAKE3 hash at 1023 bytes (10108970eeda3eb9...)",
+        "Provides BLAKE3 hash at 1025 bytes (d00278ae47eb27b3...)",
+        "Explains chunk boundary significance"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "I need to verify my BLAKE3 keyed_hash and derive_key implementations. What test vectors should I use?",
+      "expected_output": "Provides BLAKE3 keyed_hash and derive_key vectors with the correct key (000102...1f) and context string, at multiple input sizes",
+      "files": [],
+      "expectations": [
+        "Provides keyed_hash empty input vector (73492b19995d71cd...)",
+        "Provides derive_key empty input vector (2cc39783c223154f...)",
+        "Specifies the 32-byte sequential key (000102...1f)",
+        "Specifies the official context string (BLAKE3 2019-12-27 16:29:52 test vectors context)"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "I'm getting different hashes from BLAKE2bp and BLAKE2b for the same input. Is my BLAKE2bp implementation broken?",
+      "expected_output": "Explains that BLAKE2bp and BLAKE2b produce different outputs by design, provides test vectors for both to compare, and includes BLAKE2bp empty/abc vectors",
+      "files": [],
+      "expectations": [
+        "Explains that BLAKE2bp and BLAKE2b are different algorithms producing different output",
+        "Provides BLAKE2bp empty input vector (b5ef811a8038f70b...)",
+        "Provides BLAKE2bp 'abc' vector (b91a6b66ae87526c...)",
+        "Provides BLAKE2b vector for comparison"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "I need to generate multiple subkeys from a single master key using BLAKE3. How do I use the XOF for this? Can you show me test vectors at different output lengths to verify my implementation?",
+      "expected_output": "Explains BLAKE3 XOF and prefix property, provides keyed hash or derive_key vectors at multiple output lengths (32, 64, 128 bytes), explains that shorter outputs are prefixes",
+      "files": [],
+      "expectations": [
+        "Explains the XOF prefix property (shorter outputs are prefixes of longer ones)",
+        "Provides XOF vectors at multiple output lengths (at least 32 and 64 bytes)",
+        "Provides keyed or derive_key XOF vectors",
+        "Shows how to use XOF for subkey generation"
+      ]
+    },
+    {
+      "id": 5,
+      "prompt": "We're currently using HMAC-SHA256 for API authentication and HKDF-SHA256 for deriving session keys. Our profiling shows hashing is 15% of request latency. We want to migrate to BLAKE3 for performance. What's the migration path and what should we watch out for?",
+      "expected_output": "Provides concrete migration steps from HMAC-SHA256 to BLAKE3 keyed_hash and from HKDF to derive_key, covers key size differences, API mapping, dual-hash transition, and common pitfalls",
+      "files": [],
+      "expectations": [
+        "Maps HMAC-SHA256 to BLAKE3 keyed_hash with code examples",
+        "Maps HKDF-SHA256 to BLAKE3 derive_key with code examples",
+        "Warns about BLAKE3 keyed_hash requiring exactly 32-byte keys (vs HMAC accepting any length)",
+        "Explains derive_key context string must be hardcoded (dynamic data goes in key material)",
+        "Mentions dual-hash transition strategy or backward compatibility approach",
+        "Notes that BLAKE3 is not FIPS-approved if compliance matters"
+      ]
+    },
+    {
+      "id": 6,
+      "prompt": "Our embedded firmware runs on a Cortex-M4 with 64KB SRAM. We need a keyed hash for message authentication between devices. Currently evaluating BLAKE2s vs BLAKE3 for this. What do you recommend and what are the RAM/ROM tradeoffs?",
+      "expected_output": "Recommends BLAKE2s for the Cortex-M4 due to smaller state size and 32-bit native operations, provides ROM/RAM estimates, explains why BLAKE3's ~1.9KB state is problematic for constrained environments",
+      "files": [],
+      "expectations": [
+        "Recommends BLAKE2s over BLAKE3 for Cortex-M4",
+        "Mentions BLAKE3 hasher state is approximately 1.9KB (too large for some embedded stacks)",
+        "Provides BLAKE2s ROM estimate (approximately 8-12 KiB)",
+        "Provides BLAKE2s RAM estimate (approximately 200-500 bytes state)",
+        "Mentions BLAKE2s keyed mode for MAC functionality",
+        "References WireGuard or Linux kernel as real-world BLAKE2s embedded usage"
+      ]
+    },
+    {
+      "id": 7,
+      "prompt": "I'm reading the WireGuard whitepaper and it uses BLAKE2s for hashing. Why did they choose BLAKE2s instead of BLAKE2b or SHA-256? And how exactly is BLAKE2s used in the WireGuard handshake?",
+      "expected_output": "Explains WireGuard's choice of BLAKE2s (32-bit alignment with ChaCha20, 128-bit security matches the cipher suite), describes the roles BLAKE2s plays in the Noise IKpsk2 handshake",
+      "files": [],
+      "expectations": [
+        "Explains 32-bit word size alignment with ChaCha20-Poly1305",
+        "Notes 128-bit security level matches the rest of the cipher suite",
+        "Mentions BLAKE2s is used for HASH, MAC, and HMAC in the Noise handshake",
+        "Explains why BLAKE2b was not chosen (64-bit words unnecessary for embedded/mobile)",
+        "Mentions BLAKE3 didn't exist when WireGuard was designed (2017 vs 2020)"
+      ]
+    }
+  ]
+}
