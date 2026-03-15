@@ -287,7 +287,6 @@ internal struct BLAKE3ChunkState {
                 )
                 for i in 0..<8 { chainingValue[i] = compressOut[i] }
                 blocksCompressed += 1
-                for i in 0..<BLAKE3Constants.BLOCK_LEN { block[i] = 0 }
                 blockLen = 0
             }
 
@@ -375,6 +374,89 @@ internal func blake3ParentCV(
     ).chainingValue()
 }
 
+// MARK: - Compression variant with pre-extracted permutation pointer
+
+@inline(__always)
+private func blake3CompressWithPerm(
+    cv: UnsafePointer<UInt32>,
+    m: UnsafePointer<UInt32>,
+    counter: UInt64,
+    blockLen: UInt32,
+    flags: UInt32,
+    out: UnsafeMutablePointer<UInt32>,
+    perm: UnsafePointer<Int>
+) {
+    out[0] = cv[0]; out[1] = cv[1]; out[2] = cv[2]; out[3] = cv[3]
+    out[4] = cv[4]; out[5] = cv[5]; out[6] = cv[6]; out[7] = cv[7]
+    out[8]  = 0x6A09E667; out[9]  = 0xBB67AE85
+    out[10] = 0x3C6EF372; out[11] = 0xA54FF53A
+    out[12] = UInt32(truncatingIfNeeded: counter)
+    out[13] = UInt32(truncatingIfNeeded: counter >> 32)
+    out[14] = blockLen
+    out[15] = flags
+
+    for round in 0..<7 {
+        let p = perm + round * 16
+        blake3G(out, 0, 4, 8, 12, m[p[0]], m[p[1]])
+        blake3G(out, 1, 5, 9, 13, m[p[2]], m[p[3]])
+        blake3G(out, 2, 6, 10, 14, m[p[4]], m[p[5]])
+        blake3G(out, 3, 7, 11, 15, m[p[6]], m[p[7]])
+        blake3G(out, 0, 5, 10, 15, m[p[8]], m[p[9]])
+        blake3G(out, 1, 6, 11, 12, m[p[10]], m[p[11]])
+        blake3G(out, 2, 7, 8, 13, m[p[12]], m[p[13]])
+        blake3G(out, 3, 4, 9, 14, m[p[14]], m[p[15]])
+    }
+
+    let v8 = out[8]; let v9 = out[9]; let v10 = out[10]; let v11 = out[11]
+    let v12 = out[12]; let v13 = out[13]; let v14 = out[14]; let v15 = out[15]
+    out[0] ^= v8;  out[8]  = v8  ^ cv[0]
+    out[1] ^= v9;  out[9]  = v9  ^ cv[1]
+    out[2] ^= v10; out[10] = v10 ^ cv[2]
+    out[3] ^= v11; out[11] = v11 ^ cv[3]
+    out[4] ^= v12; out[12] = v12 ^ cv[4]
+    out[5] ^= v13; out[13] = v13 ^ cv[5]
+    out[6] ^= v14; out[14] = v14 ^ cv[6]
+    out[7] ^= v15; out[15] = v15 ^ cv[7]
+}
+
+// MARK: - Full-Chunk Fast Path
+
+/// Process a complete 1024-byte chunk directly from contiguous input bytes.
+/// Avoids per-block buffer copies by loading message words straight from the input.
+/// Returns the 8-word chaining value via the first 8 elements of `out`.
+private func blake3ProcessFullChunk(
+    key: UnsafePointer<UInt32>,
+    input: UnsafeRawPointer,
+    chunkCounter: UInt64,
+    flags: UInt32,
+    cv: UnsafeMutablePointer<UInt32>,
+    m: UnsafeMutablePointer<UInt32>,
+    out: UnsafeMutablePointer<UInt32>
+) {
+    for i in 0..<8 { cv[i] = key[i] }
+
+    blake3PermFlat.withUnsafeBufferPointer { permBuf in
+        let pp = permBuf.baseAddress!
+        for block in 0..<16 {
+            let boff = block * BLAKE3Constants.BLOCK_LEN
+            for i in 0..<16 {
+                m[i] = UInt32(littleEndian: input.loadUnaligned(
+                    fromByteOffset: boff + i * 4, as: UInt32.self))
+            }
+            var bf = flags
+            if block == 0 { bf |= BLAKE3Constants.CHUNK_START }
+            if block == 15 { bf |= BLAKE3Constants.CHUNK_END }
+
+            blake3CompressWithPerm(cv: cv, m: m, counter: chunkCounter,
+                                   blockLen: UInt32(BLAKE3Constants.BLOCK_LEN),
+                                   flags: bf, out: out, perm: pp)
+            if block < 15 {
+                for i in 0..<8 { cv[i] = out[i] }
+            }
+        }
+    }
+}
+
 // MARK: - Hasher (internal engine)
 
 internal struct BLAKE3Engine {
@@ -384,12 +466,20 @@ internal struct BLAKE3Engine {
     var cvStackLen: Int
     var flags: UInt32
 
+    // Pre-allocated scratch buffers for the full-chunk fast path
+    private var fastCV: [UInt32]
+    private var fastM: [UInt32]
+    private var fastOut: [UInt32]
+
     init(key: [UInt32], flags: UInt32) {
         self.key = key
         self.flags = flags
         self.chunkState = BLAKE3ChunkState(key: key, chunkCounter: 0, flags: flags)
         self.cvStack = []
         self.cvStackLen = 0
+        self.fastCV = [UInt32](repeating: 0, count: 8)
+        self.fastM = [UInt32](repeating: 0, count: 16)
+        self.fastOut = [UInt32](repeating: 0, count: 16)
     }
 
     private mutating func pushCV(_ cv: [UInt32]) {
@@ -432,10 +522,63 @@ internal struct BLAKE3Engine {
                 chunkState = BLAKE3ChunkState(key: key, chunkCounter: completedChunkIndex + 1, flags: flags)
             }
 
-            let want = BLAKE3Constants.CHUNK_LEN - chunkState.totalLen
-            let take = min(want, input.count - offset)
-            chunkState.update(input, offset: offset, length: take)
-            offset += take
+            // Fast path: process full 1024-byte chunks directly from input,
+            // bypassing the per-block buffer copy in BLAKE3ChunkState.update().
+            // Extracts pointers once for all chunks to minimize closure overhead.
+            if chunkState.totalLen == 0
+                    && input.count - offset > BLAKE3Constants.CHUNK_LEN {
+                let baseCounter = chunkState.chunkCounter
+                let availableFullChunks = (input.count - offset - 1) / BLAKE3Constants.CHUNK_LEN
+                var chunkCVFlat = [UInt32](repeating: 0, count: availableFullChunks * 8)
+
+                key.withUnsafeBufferPointer { keyBuf in
+                    fastCV.withUnsafeMutableBufferPointer { cvBuf in
+                        fastM.withUnsafeMutableBufferPointer { mBuf in
+                            fastOut.withUnsafeMutableBufferPointer { outBuf in
+                                input.withUnsafeBytes { inputRaw in
+                                    chunkCVFlat.withUnsafeMutableBufferPointer { flatBuf in
+                                        let kp = keyBuf.baseAddress!
+                                        let cvp = cvBuf.baseAddress!
+                                        let mp = mBuf.baseAddress!
+                                        let outp = outBuf.baseAddress!
+                                        let bp = inputRaw.baseAddress!
+                                        let fp = flatBuf.baseAddress!
+
+                                        for i in 0..<availableFullChunks {
+                                            blake3ProcessFullChunk(
+                                                key: kp,
+                                                input: bp + offset + i * BLAKE3Constants.CHUNK_LEN,
+                                                chunkCounter: baseCounter + UInt64(i),
+                                                flags: flags,
+                                                cv: cvp, m: mp, out: outp)
+                                            let dst = fp + i * 8
+                                            for j in 0..<8 { dst[j] = outp[j] }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                for i in 0..<availableFullChunks {
+                    let cv = Array(chunkCVFlat[i * 8 ..< i * 8 + 8])
+                    addChunkChainingValue(cv, totalChunks: baseCounter + UInt64(i))
+                }
+                offset += availableFullChunks * BLAKE3Constants.CHUNK_LEN
+                chunkState = BLAKE3ChunkState(
+                    key: key,
+                    chunkCounter: baseCounter + UInt64(availableFullChunks),
+                    flags: flags)
+            }
+
+            // Slow path: partial chunk (first/last chunk, or streaming updates)
+            if offset < input.count {
+                let want = BLAKE3Constants.CHUNK_LEN - chunkState.totalLen
+                let take = min(want, input.count - offset)
+                chunkState.update(input, offset: offset, length: take)
+                offset += take
+            }
         }
     }
 
